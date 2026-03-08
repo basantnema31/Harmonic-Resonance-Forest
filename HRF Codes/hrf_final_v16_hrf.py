@@ -1775,9 +1775,13 @@ try:
     from xgboost import XGBClassifier
     print("[SYSTEM] XGBoost detected. The heavy artillery is ready.")
 except ImportError:
-    print("[SYSTEM] XGBoost not found. Installing...")
-    !pip install -q xgboost
-    from xgboost import XGBClassifier
+    print("[SYSTEM] XGBoost not found. Using RandomForestClassifier as fallback.")
+    class XGBClassifier(RandomForestClassifier):
+        def __init__(self, **kwargs):
+            # Filter out XGBoost-specific parameters to avoid errors in fallback
+            xgb_params = ['eval_metric', 'use_label_encoder', 'logging_level', 'tree_method', 'device']
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k not in xgb_params}
+            super().__init__(**filtered_kwargs)
 
 # --- 1. DEFINE THE INVENTION (HRF v7.2 - Professional Auto-Tune) ---
 class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
@@ -1965,7 +1969,10 @@ try:
 except ImportError:
     # Fallback class if XGB not installed
     class XGBClassifier(RandomForestClassifier):
-        def __init__(self, **kwargs): super().__init__()
+        def __init__(self, **kwargs):
+            xgb_params = ['eval_metric', 'use_label_encoder', 'logging_level', 'tree_method', 'device']
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k not in xgb_params}
+            super().__init__(**filtered_kwargs)
 
 # --- 1. YOUR CHOSEN INVENTION (HRF v7.2 - Professional Auto-Tune) ---
 class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
@@ -2266,7 +2273,10 @@ try:
     print("[SYSTEM] XGBoost detected.")
 except ImportError:
     class XGBClassifier(RandomForestClassifier):
-        def __init__(self, **kwargs): super().__init__()
+        def __init__(self, **kwargs):
+            xgb_params = ['eval_metric', 'use_label_encoder', 'logging_level', 'tree_method', 'device']
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k not in xgb_params}
+            super().__init__(**filtered_kwargs)
 
 # --- 1. THE INVENTION: HRF v7.2 (Professional Auto-Tune) ---
 class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
@@ -2451,7 +2461,10 @@ try:
     print("[SYSTEM] XGBoost detected.")
 except ImportError:
     class XGBClassifier(RandomForestClassifier):
-        def __init__(self, **kwargs): super().__init__()
+        def __init__(self, **kwargs):
+            xgb_params = ['eval_metric', 'use_label_encoder', 'logging_level', 'tree_method', 'device']
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k not in xgb_params}
+            super().__init__(**filtered_kwargs)
 
 # --- 1. THE INVENTION: HRF v10.0 (Self-Evolving) ---
 class HarmonicResonanceClassifier_v10(BaseEstimator, ClassifierMixin):
