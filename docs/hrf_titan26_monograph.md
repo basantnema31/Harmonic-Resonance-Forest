@@ -2,8 +2,8 @@
 title: Harmonic Resonance Fields (HRF) - Daily Research Monograph
 author: Devanik21 (Lead AGI & Longevity Researcher)
 affiliation: NIT Agartala | Samsung Convergence Software Fellow (IISc)
-timestamp_utc: 2026-03-22 04:49:38 UTC
-timestamp_ist: 2026-03-22 04:49:38 IST
+timestamp_utc: 2026-03-23 05:00:06 UTC
+timestamp_ist: 2026-03-23 05:00:06 IST
 architecture: HRF Titan-26 (v15.0 Ultimate & v16.0 Beta)
 determinism_index: Seed 42
 workflow_path: .github/workflows/dev-log.yml
@@ -19,7 +19,7 @@ This registry formally documents the deterministic state and ongoing evolution o
 ## II. Mathematical Physics Framework
 The foundational theorem of HRF asserts that every data coordinate in a given feature space acts as a source of physical wave potential. The algorithm evaluates the state space using damped harmonic oscillators to generate class-specific resonance energy. The wave potential $\Psi$ at an observation point $x$ induced by a source $p_i$ is governed by:
 
-$$ \Psi(\mathbf{x}, \mathbf{p}_i) = \exp\left(-\gamma \left\| \mathbf{x} - \mathbf{p}_i \right\|^2\right) \cdot \cos\left(\omega_c \cdot \left\| \mathbf{x} - \mathbf{p}_i \right\| + \varphi\right) $$
+$$ \Psi(x, p_i) = \exp(-\gamma||x - p_i||^2) \cdot \cos(\omega_c \cdot ||x - p_i|| + \varphi) $$
 
 ### 2.1 Parameter Definitions
 - **Gaussian Damping** ($\exp(-\gamma r^2)$): Constrains the spatial influence of the resonance wave to local topologies, preventing infinite energy divergence and ensuring manifold stability.
