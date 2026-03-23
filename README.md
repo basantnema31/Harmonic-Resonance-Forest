@@ -92,7 +92,7 @@ The **Classification Report** reveals a near-identical precision/recall profile 
 
 **Conclusion:** The HRF v15.0 Ultimate exhibits zero class-bias and maintains ultra-low variance, validating it as a robust, neuro-adaptive architecture capable of high-fidelity medical signal processing.
 
-
+> **Maintainer's Note:** For rigorous research benchmarks, please distinguish between **Peak Accuracy** (98.8415% for v15.0; 98.9319% for v16.0), **Final Test Accuracy** (98.5314%), and **K-Fold Mean Accuracy** (98.1225%). Version **v15.0** is the designated stable release for reproducible research, while **v16.x** remains an experimental beta.
 
 ## 🔬 Core Innovation: Phase-Invariant Classification
 

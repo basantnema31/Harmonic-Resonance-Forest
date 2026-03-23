@@ -292,6 +292,8 @@ Extended jitter range (0.0 to 2.0 seconds) with 9 measurement points:
 | **v14.0/HF** | **Real EEG (1471)** | **98.46%** | **Extra Trees** | **94.49%** | **Ultimate optimization** |
 | **v15.0/HF** | **Real EEG (1471)** | **98.84% (Peak)** | **Extra Trees** | **94.49%** | **GPU Acceleration + K-Fold Validation** |
 
+> **Maintainer's Note:** For scientific precision, note that **Peak Test Accuracy** (98.8415%) refers to the highest individual run achievement, while the **Final Test Accuracy** (98.5314%) and **K-Fold Mean Accuracy** (98.1225%) provide a more conservative and robust measure of generalization across the HRF manifold.
+
 **Progression Insights**:
 1. v1.0-v3.0: Concept validation on synthetic data (91→96%)
 2. v4.0: Breakthrough via sparse approximation (98.89% on Moons)
