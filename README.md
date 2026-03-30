@@ -2,9 +2,13 @@
 
 **ECE 2026 | AI Researcher | Creator of Harmonic Resonance Fields**
 
+
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-devanik-blue?style=flat&logo=linkedin)](https://www.linkedin.com/in/devanik/)
 [![Twitter](https://img.shields.io/badge/Twitter-@devanik2005-1DA1F2?style=flat&logo=twitter)](https://x.com/devanik2005)
 [![Email](https://img.shields.io/badge/Email-devanik2005@gmail.com-red?style=flat&logo=gmail)](mailto:devanik2005@gmail.com)
+
+---
+⚠️ Project Status: This repository contains published research (DOI: 10.5281/zenodo.18173940). All contributions must pass rigorous testing to ensure the 98.84% accuracy benchmark is maintained. Please read CONTRIBUTING.md before opening an issue.
 
 ---
 
