@@ -21,11 +21,13 @@ Our empirical results demonstrate **statistically significant superiority** (p <
 
 Traditional classifiers compute predictions using Euclidean distance:
 
-$$ \text{similarity} \propto \frac{1}{\text{distance}} $$
+```
+similarity ∝ 1 / distance
+```
 
 HRF introduces a **resonance-modulated kernel**:
 
-$$ \text{energy}(\mathbf{x}, \mathbf{X}_{\text{class}}, \omega) = \sum [\text{damping}(d) \cdot \cos(\omega \cdot d + \varphi)] $$
+$$\text{energy}(\mathbf{x}, \mathbf{X}_{\text{class}}, \omega) = \sum [\text{damping}(d) \cdot \cos(\omega \cdot d + \varphi)]$$
 
 Where:
 - $d = \left\| \mathbf{x} - \mathbf{x}_i \right\|$ (Euclidean distance to training point)
@@ -228,10 +230,10 @@ If you use HRF in your research, please cite:
 
 ```bibtex
 @software{harmonic_resonance_forest_2025,
-  author = {Devanik},
+  author = {[Your Name]},
   title = {Harmonic Resonance Forest: A Physics-Informed Classifier for Periodic Signals},
   year = {2025},
-  url = {https://github.com/Devanik21/Harmonic-Resonance-Forest}
+  url = {https://github.com/[your-repo]/harmonic-resonance-forest}
 }
 ```
 

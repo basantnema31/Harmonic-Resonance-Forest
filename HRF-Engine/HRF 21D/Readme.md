@@ -9,7 +9,7 @@
 > **"Different data patterns require different laws of physics to solve optimally."**
 
 **Inventor:** Nik | Electronics & Communication Engineering Student  
-**Architecture:** Titan-26 (26D Sophisticated Dimensionality)
+**Architecture:** Titan-21 (26D Sophisticated Dimensionality)  
 **Philosophy:** Nature + Biology + Physics + Standard Machine Learning
 
 ---
@@ -157,7 +157,7 @@ The following visualization demonstrates the evolution from traditional ML to ha
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    HARMONIC RESONANCE FOREST                    │
-│                        (Titan-26 Config)                        │
+│                        (Titan-21 Config)                        │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                     ┌───────────▼───────────┐
@@ -327,7 +327,7 @@ GPU-accelerated parallel ensembles representing the **four fundamental forces**:
 
 ```bash
 # Clone repository
-git clone https://github.com/Devanik21/harmonic-resonance-forest.git
+git clone https://github.com/yourusername/harmonic-resonance-forest.git
 cd harmonic-resonance-forest
 
 # Install dependencies
@@ -542,8 +542,8 @@ If you use HRF in your research, please cite:
   year = {2026},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/Devanik21/harmonic-resonance-forest}},
-  note = {Titan-26 Configuration - 26D Sophisticated Dimensionality}
+  howpublished = {\url{https://github.com/yourusername/harmonic-resonance-forest}},
+  note = {Titan-21 Configuration - 26D Sophisticated Dimensionality}
 }
 
 @software{soul_showcase_arena_2026,
@@ -552,7 +552,7 @@ If you use HRF in your research, please cite:
   year = {2026},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/Devanik21/hrf-soul-showcase}},
+  howpublished = {\url{https://github.com/yourusername/hrf-soul-showcase}},
   note = {HRF v15.0 Ultimate - GPU Edition with Titan Chorus}
 }
 ```
@@ -619,8 +619,8 @@ MIT License - see `LICENSE` file for details.
 
 **Creator:** Nik (ECE Student)  
 **Email:** [your.email@domain.com]  
-**Issues:** [GitHub Issues](https://github.com/Devanik21/harmonic-resonance-forest/issues)
-**Discussions:** [GitHub Discussions](https://github.com/Devanik21/harmonic-resonance-forest/discussions)
+**Issues:** [GitHub Issues](https://github.com/yourusername/harmonic-resonance-forest/issues)  
+**Discussions:** [GitHub Discussions](https://github.com/yourusername/harmonic-resonance-forest/discussions)
 
 ---
 
