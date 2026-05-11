@@ -2,13 +2,18 @@
 
 **ECE 2026 | AI Researcher | Creator of Harmonic Resonance Fields**
 
+[![Zenodo DOI](https://zenodo.org/records/18173940)](https://zenodo.org/records/18173940)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-devanik-blue?style=flat&logo=linkedin)](https://www.linkedin.com/in/devanik/)
 [![Twitter](https://img.shields.io/badge/Twitter-@devanik2005-1DA1F2?style=flat&logo=twitter)](https://x.com/devanik2005)
 [![Email](https://img.shields.io/badge/Email-devanik2005@gmail.com-red?style=flat&logo=gmail)](mailto:devanik2005@gmail.com)
 
 ---
 
-##  Research Breakthrough
+⚠️ Project Status: This repository contains published research (DOI: 10.5281/zenodo.18173940). All contributions must pass rigorous testing to ensure the 98.84% accuracy benchmark is maintained. Please read CONTRIBUTING.md before opening an issue.
+
+---
+
+##  Research Advancement
 
 I developed **Harmonic Resonance Fields (HRF)**, a novel physics-informed machine learning algorithm that achieved **98.84% accuracy** on the EEG Eye State Corpus (OpenML ID: 1471), surpassing all industry-standard models including Random Forest, XGBoost, and Extra Trees.
 
@@ -31,7 +36,7 @@ HRF combines **five fields**:
 4. **Neuroscience** - Brainwave frequencies (Alpha/Beta/Delta/Theta/Gamma), EEG physiology
 5. **Statistical Mathematics** - Fourier analysis, cross-validation, optimization theory
 
-The breakthrough is the **synthesis**: treating classification as a physical wave interference problem solved with GPU-accelerated statistical validation on neurophysiological signals.
+The advancement is the **synthesis**: treating classification as a physical wave interference problem solved with GPU-accelerated statistical validation on neurophysiological signals.
 
 ---
 
@@ -44,8 +49,8 @@ The breakthrough is the **synthesis**: treating classification as a physical wav
 
 | Model | Test Accuracy | Gap from HRF |
 | :--- | :--- | :--- |
-| **HRF v16.0 (High Var)** | **98.93%** | **—** |
-| **HRF v15.0(Stable)** | **98.84%** | **-0.09%** |
+| **HRF v16.0 (High Var)** | **98.93% (Peak)** | **—** |
+| **HRF v15.0 (Stable)** | **98.84% (Peak)** | **-0.09%** |
 | Extra Trees | 94.49% | -4.35% |
 | Random Forest | 93.09% | -5.75% |
 | XGBoost | 92.99% | -5.85% |
@@ -92,7 +97,7 @@ The **Classification Report** reveals a near-identical precision/recall profile 
 
 **Conclusion:** The HRF v15.0 Ultimate exhibits zero class-bias and maintains ultra-low variance, validating it as a robust, neuro-adaptive architecture capable of high-fidelity medical signal processing.
 
-
+> **Maintainer's Note:** For rigorous research benchmarks, please distinguish between **Peak Accuracy** (98.8415% for v15.0; 98.9319% for v16.0), **Final Test Accuracy** (98.5314%), and **K-Fold Mean Accuracy** (98.1225%). Version **v15.0** is the designated stable release for reproducible research, while **v16.x** remains an experimental beta.
 
 ## 🔬 Core Innovation: Phase-Invariant Classification
 
@@ -229,7 +234,7 @@ To prove stability, HRF v15.0 was subjected to a **5-Fold Stratified Cross-Valid
 | :--- | :--- | :--- |
 | **K-Fold Mean Accuracy** | **98.12%** | Proves stability across diverse data subsets. |
 | **K-Fold Variance** | **±0.18%** | Negligible fluctuations; confirms **Zero Overfitting**. |
-| **Final Test Accuracy** | **98.84%** | Exceptional generalization on unseen brainwave data. |
+| **Peak Test Accuracy** | **98.84%** | Exceptional generalization on unseen brainwave data. |
 | **ROC-AUC Score** | **0.9849** | Perfect class separation in the resonance field. |
 | **F1-Score** | **0.9836** | Harmonic balance between Precision (98.6%) and Recall (98.1%). |
 
@@ -359,9 +364,7 @@ Fold 5 Accuracy: 98.3311%
 
 HRF models each training point as a damped harmonic oscillator generating class-specific wave potentials:
 
-```
-Ψ(x, pᵢ) = exp(-γ||x - pᵢ||²) · cos(ωc · ||x - pᵢ|| + φ)
-```
+$$\Psi(\mathbf{x}, \mathbf{p}_i) = \exp\left(-\gamma \left\| \mathbf{x} - \mathbf{p}_i \right\|^2\right) \cdot \cos\left(\omega_c \cdot \left\| \mathbf{x} - \mathbf{p}_i \right\| + \varphi\right)$$
 
 Where:
 - **Gaussian damping** (`exp(-γr²)`) controls spatial influence
@@ -370,7 +373,7 @@ Where:
 
 ### Key Components
 
-1. **Bipolar Montage Preprocessing:** Differential signal extraction to cancel common-mode noise
+1. **Bipolar Montage Preprocessing:** Differential signal extraction inspired by clinical neurophysiology to cancel common-mode noise and improve signal-to-noise ratio.
 2. **Auto-Evolution:** Grid search over frequency (0.1-50 Hz), damping (0.01-15), and neighbors (3-10)
 3. **Ensemble Method:** Bagging with 60 estimators, max_features=1.0 for full holographic coverage
 4. **Robust Scaling:** Quantile-based normalization (15th-85th percentile) for artifact rejection
@@ -533,6 +536,10 @@ This work was developed independently as part of my Electronics and Communicatio
 <img width="867" height="553" alt="download" src="https://github.com/user-attachments/assets/c09bea3a-ac31-4071-b410-31ff0acd8275" />
 
 ---
+
+## License
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
 
 **"When AI listens to the physics of the world, it unlocks unprecedented understanding."**
 
