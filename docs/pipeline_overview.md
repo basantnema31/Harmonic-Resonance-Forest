@@ -77,7 +77,7 @@ Before any learning occurs, the signal undergoes normalization and stabilization
 
 Noise reduction and channel alignment are applied to ensure consistency across EEG sensors. In advanced versions of the architecture, bipolar montage conversion and channel weighting mechanisms further refine signal quality by emphasizing biologically meaningful regions.
 
-This stage does not perform explicit feature extraction. instead, it prepares the signal to exist in a stable mathematical space where geometric relationships can be meaningfully computed.
+This stage does not perform explicit feature extraction. Instead, it prepares the signal to exist in a stable mathematical space where geometric relationships can be meaningfully computed.
 
 ## 3. Geometric–Resonance Transformation Layer
 
