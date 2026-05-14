@@ -83,7 +83,7 @@ This stage does not perform explicit feature extraction. instead, it prepares th
 
 Once stabilized, the EEG signals are projected into a resonance-aware feature space. Instead of relying solely on Fourier-based decomposition, HRF computes pairwise geometric relationships between data points and interprets them as wave interactions.
 
-Distance metrics such as Euclidean or Minkowski form the basis of this transformation. These distances are then modulated using cosine-based resonance functions, allowing the system to models interaction patterns between data points using resonance-inspired modulation.
+Distance metrics such as Euclidean or Minkowski form the basis of this transformation. These distances are then modulated using cosine-based resonance functions, allowing the system to model interaction patterns between data points using resonance-inspired modulation.
 
 The result is a hybrid representation where classical geometry and wave physics coexist, enabling the system to capture nonlinear structures that traditional feature engineering often misses.
 
