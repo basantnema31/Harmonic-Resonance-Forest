@@ -333,7 +333,7 @@ def extract_features(epoch, fs=FS):
     peak_freq = float(freqs[np.argmax(psd)]) if len(psd) > 0 else 0.0
 
     # ── Slow-wave duration proxy ──────────────────────────────────────────────
-    slow_wave = float(np.mean(np.abs(epoch) > 75e-6 * max(ep_std, eps)))
+    slow_wave = float(np.mean(np.abs(epoch) > 75e-6))
 
     # ── Spindle density proxy (12–16 Hz envelope peaks / second) ─────────────
     b_sp, a_sp  = butter(4, [12.0 / (fs / 2), 16.0 / (fs / 2)], btype="band")
@@ -556,7 +556,7 @@ class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
         preds   = []
         for i in range(len(X_qry)):
             rd  = dists[i]
-            idx = np.argsort(rd)[:k]
+            idx = np.argpartition(rd, k - 1)[:k]
             ld, ly = rd[idx], y_src[idx]
             best_e, best_c = -np.inf, classes[0]
             for c in classes:
@@ -681,8 +681,11 @@ class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
                 dtype=float,
             )
             # Numerically stable softmax
-            raw -= raw.max()
+            m = raw.max()
+            if m > -np.inf:
+                raw -= m
             exp_e = np.exp(raw)
+            
             proba.append(exp_e / (exp_e.sum() + 1e-12))
         return np.array(proba)
 
