@@ -648,7 +648,7 @@ class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
             rd = dists[i]
             if self.n_neighbors is not None:
                 k   = min(self.n_neighbors, len(self.X_train_))
-                idx = np.argsort(rd)[:k]
+                idx = np.argpartition(rd, k - 1)[:k]
                 ld, ly = rd[idx], self.y_train_[idx]
             else:
                 ld, ly = rd, self.y_train_
