@@ -682,6 +682,8 @@ class HarmonicResonanceClassifier(BaseEstimator, ClassifierMixin):
             )
             # Numerically stable softmax
             m = raw.max()
+            # Numerically stable softmax
+            m = raw.max()
             if m > -np.inf:
                 raw -= m
             exp_e = np.exp(raw)
