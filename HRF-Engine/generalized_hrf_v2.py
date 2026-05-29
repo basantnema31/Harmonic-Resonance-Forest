@@ -336,6 +336,7 @@ from sklearn.metrics import log_loss, accuracy_score
 from sklearn.utils.validation import check_X_y
 from sklearn.model_selection import train_test_split
 from scipy.optimize import minimize
+from scipy.spatial.distance import cdist
 
 # --- WAVE RESONANCE KERNEL ---
 def wave_resonance_kernel(X, Y):
@@ -347,7 +348,7 @@ def wave_resonance_kernel(X, Y):
     X = np.asarray(X)
     Y = np.asarray(Y)
 
-    dist = np.linalg.norm(X[:, np.newaxis] - Y, axis=2)
+    dist = cdist(X, Y, metric='euclidean')
 
     resonance = np.cos(2.5 * dist)
     decay = np.exp(-0.5 * (dist ** 2))
@@ -355,7 +356,7 @@ def wave_resonance_kernel(X, Y):
     return resonance * decay
 
 # --- 7. THE TITAN-16 "BEAST MODE" (Endgame Edition) ---
-class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
+class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
     def __init__(self, verbose=False):
         self.verbose = verbose
         # Robust scaling with wider quantile to catch outliers
@@ -598,7 +599,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 def HarmonicResonanceForest_Ultimate(n_estimators=None):
-    return HarmonicResonanceClassifier_BEAST_14D(verbose=True)
+    return HarmonicResonanceClassifier_BEAST_16D(verbose=True)
 
 from sklearn.datasets import fetch_openml
 from sklearn.pipeline import make_pipeline
