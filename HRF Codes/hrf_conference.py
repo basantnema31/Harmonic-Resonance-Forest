@@ -497,16 +497,13 @@ def run_neural_perturbation_test():
 
     # Optionally register sigmoid kernel variant into the benchmark
     if ENABLE_SIGMOID_KERNEL:
-        try:
-            competitors["SVM (Sigmoid)"] = make_sigmoid_svc()
-        except Exception:
-            # If creation fails, skip gracefully
-            pass
+        competitors["SVM (Sigmoid)"] = make_sigmoid_svc()
 
     try:
         from xgboost import XGBClassifier
         competitors["XGBoost"] = XGBClassifier(n_estimators=100, use_label_encoder=False, eval_metric='logloss')
-    except ImportError: pass
+    except ImportError:
+        pass
 
     print(f"\n{'Model Name':<30} | {'Accuracy':<10} | {'Status'}")
     print("-" * 60)
@@ -746,20 +743,7 @@ def run_survival_curve():
         X, y = generate_data_at_jitter_level(j)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
 
-        # 1. HRF
-        hrf = HarmonicResonanceForest(n_estimators=30)
-        hrf.fit(X_train, y_train)
-        s_hrf = accuracy_score(y_test, hrf.predict(X_test))
-        history["HRF v12 (Ours)"].append(s_hrf)
-
-        # 2. Random Forest
-        rf = RandomForestClassifier(n_estimators=50, random_state=42)
-        rf.fit(X_train, y_train)
-        s_rf = accuracy_score(y_test, rf.predict(X_test))
-        history["Random Forest"].append(s_rf)
-
-        # 3. SVM
-        # Optionally apply wavelet preprocessing for all competitors
+        # Apply wavelet preprocessing once and use the same feature space for every competitor
         if ENABLE_WAVELET_RESONANCE:
             transformer = WaveletResonanceTransformer()
             X_train_used = transformer.fit_transform(X_train)
@@ -767,38 +751,48 @@ def run_survival_curve():
         else:
             X_train_used, X_test_used = X_train, X_test
 
+        # 1. HRF
+        hrf = HarmonicResonanceForest(n_estimators=30)
+        hrf.fit(X_train_used, y_train)
+        s_hrf = accuracy_score(y_test, hrf.predict(X_test_used))
+        history["HRF v12 (Ours)"].append(s_hrf)
+
+        # 2. Random Forest
+        rf = RandomForestClassifier(n_estimators=50, random_state=42)
+        rf.fit(X_train_used, y_train)
+        s_rf = accuracy_score(y_test, rf.predict(X_test_used))
+        history["Random Forest"].append(s_rf)
+
+        # 3. SVM
         svm = SVC(kernel='rbf', C=1.0)
         svm.fit(X_train_used, y_train)
         s_svm = accuracy_score(y_test, svm.predict(X_test_used))
 
         # Optional sigmoid variant evaluation
         if ENABLE_SIGMOID_KERNEL:
-            try:
-                svm_sig = make_sigmoid_svc()
-                svm_sig.fit(X_train_used, y_train)
-                s_svm_sig = accuracy_score(y_test, svm_sig.predict(X_test_used))
-                history.setdefault('SVM (Sigmoid)', []).append(s_svm_sig)
-            except Exception:
-                # Append 0.0 to keep history lengths aligned and prevent plotting crashes
-                history.setdefault('SVM (Sigmoid)', []).append(0.0)
+            svm_sig = make_sigmoid_svc()
+            svm_sig.fit(X_train_used, y_train)
+            s_svm_sig = accuracy_score(y_test, svm_sig.predict(X_test_used))
+            history.setdefault('SVM (Sigmoid)', []).append(s_svm_sig)
         history["SVM (RBF)"].append(s_svm)
 
         # 4. KNN
         knn = KNeighborsClassifier(n_neighbors=5)
-        knn.fit(X_train, y_train)
-        s_knn = accuracy_score(y_test, knn.predict(X_test))
+        knn.fit(X_train_used, y_train)
+        s_knn = accuracy_score(y_test, knn.predict(X_test_used))
         history["KNN"].append(s_knn)
 
         # 5. XGBoost (Safe Import)
         try:
             from xgboost import XGBClassifier
-            xgb = XGBClassifier(n_estimators=50, use_label_encoder=False, eval_metric='logloss', verbosity=0)
-            xgb.fit(X_train, y_train)
-            s_xgb = accuracy_score(y_test, xgb.predict(X_test))
-            history["XGBoost"].append(s_xgb)
-        except:
+        except ImportError:
             s_xgb = 0.0
-            history["XGBoost"].append(0.0)
+            history["XGBoost"].append(s_xgb)
+        else:
+            xgb = XGBClassifier(n_estimators=50, use_label_encoder=False, eval_metric='logloss', verbosity=0)
+            xgb.fit(X_train_used, y_train)
+            s_xgb = accuracy_score(y_test, xgb.predict(X_test_used))
+            history["XGBoost"].append(s_xgb)
 
         # Print Scoreboard for this level
         print(f"{j:<12.2f} | {s_hrf:<10.2%} | {s_rf:<10.2%} | {s_svm:<10.2%} | {s_knn:<10.2%} | {s_xgb:<10.2%}")

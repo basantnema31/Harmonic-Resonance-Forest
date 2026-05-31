@@ -9,9 +9,10 @@ import numpy as np
 
 try:
     import pywt
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     pywt = None
 
+from sklearn.utils.validation import check_is_fitted
 from hrf_config import WAVELET_DEFAULTS, ENABLE_WAVELET_RESONANCE
 
 
@@ -28,9 +29,13 @@ class WaveletResonanceTransformer(BaseEstimator, TransformerMixin):
         self.level = level
 
     def fit(self, X, y=None):
+        self.wavelet_ = self.wavelet or WAVELET_DEFAULTS['wavelet']
+        self.level_ = self.level if self.level is not None else WAVELET_DEFAULTS['level']
         return self
 
     def transform(self, X):
+        check_is_fitted(self, ['wavelet_', 'level_'])
+
         if not ENABLE_WAVELET_RESONANCE:
             # Pass-through when disabled
             return X
@@ -42,9 +47,8 @@ class WaveletResonanceTransformer(BaseEstimator, TransformerMixin):
         if X.ndim != 2:
             raise ValueError('X must be 2D: (n_samples, n_features)')
 
-        # Resolve defaults from config if not provided
-        wavelet = self.wavelet or WAVELET_DEFAULTS['wavelet']
-        level = self.level if self.level is not None else WAVELET_DEFAULTS['level']
+        wavelet = self.wavelet_
+        level = self.level_
 
         # Vectorized DWT: apply to all rows at once
         # pywt.wavedec performs DWT decomposition and returns coefficients

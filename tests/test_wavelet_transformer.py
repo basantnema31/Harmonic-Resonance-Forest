@@ -15,6 +15,7 @@ def test_wavelet_transformer_shape():
     X, y = make_circles(n_samples=100, factor=0.5, noise=0.05)
     tr = WaveletResonanceTransformer()
     if not ENABLE_WAVELET_RESONANCE:
+        tr.fit(X)
         out = tr.transform(X)
         # should be pass-through when disabled
         assert out.shape == X.shape
@@ -39,6 +40,9 @@ def test_wavelet_transformer_enabled():
             assert out.shape[0] == X.shape[0]
             # Should have features (output is not empty)
             assert out.shape[1] > 0
+            # Fitted attributes should be available after fit
+            assert hasattr(tr, 'wavelet_')
+            assert hasattr(tr, 'level_')
         except RuntimeError as e:
             if 'pywt' in str(e):
                 # pywt not installed; skip
@@ -47,3 +51,14 @@ def test_wavelet_transformer_enabled():
                 raise
     finally:
         hrf_config.ENABLE_WAVELET_RESONANCE = original
+
+
+def test_wavelet_transformer_requires_fit():
+    """Transform should require fit() to be called first."""
+    X, y = make_circles(n_samples=50, factor=0.5, noise=0.05)
+    tr = WaveletResonanceTransformer(wavelet='db1', level=1)
+    try:
+        tr.transform(X)
+        assert False, 'Expected transform without fit to raise an exception'
+    except Exception as e:
+        assert 'fit' in str(e).lower() or 'fitted' in str(e).lower()
