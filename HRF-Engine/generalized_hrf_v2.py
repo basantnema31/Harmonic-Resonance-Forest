@@ -147,7 +147,7 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         if self.projector_ is not None: X_curr = self.projector_.transform(X)
         else: X_curr = X
         if GPU_AVAILABLE: return self._predict_proba_gpu(X_curr)
-        else: return np.zeros((len(X), len(self.classes_)))
+        else: return self._predict_proba_cpu(X_curr)
 
     def _predict_proba_gpu(self, X):
         X_tr_g = cp.asarray(self.X_train_, dtype=cp.float32)
@@ -194,7 +194,56 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             cp.get_default_memory_pool().free_all_blocks()
 
         return cp.asnumpy(cp.concatenate(probas))
+    def _predict_proba_cpu(self, X):
+        """NumPy fallback for predict_proba when CuPy/GPU is unavailable.
+        Mirrors _predict_proba_gpu exactly, using np instead of cp.
+        """
+        X_train = self.X_train_.astype(np.float32)
+        X_test  = np.asarray(X, dtype=np.float32)
+        y_train = self.y_train_
 
+        n_test    = len(X_test)
+        n_classes = len(self.classes_)
+        probas    = []
+        batch_size = 256
+
+        p_norm = self.dna_.get('p', 2.0)
+        gamma  = self.dna_['gamma']
+        freq   = self.dna_['freq']
+        power  = self.dna_['power']
+        phase  = self.dna_.get('phase', 0.0)
+
+        for i in range(0, n_test, batch_size):
+            end      = min(i + batch_size, n_test)
+            batch_te = X_test[i:end]
+
+            diff  = np.abs(batch_te[:, None, :] - X_train[None, :, :])
+            dists = np.sum(np.power(diff, p_norm), axis=2)
+            dists = np.power(dists, 1.0 / p_norm)
+
+            top_k_idx = np.argsort(dists, axis=1)[:, :self.k]
+            row_idx   = np.arange(len(batch_te))[:, None]
+            top_dists = dists[row_idx, top_k_idx]
+            top_y     = y_train[top_k_idx]
+
+            cosine_term = 1.0 + np.cos(freq * top_dists + phase)
+            cosine_term = np.maximum(cosine_term, 0.0)
+            w = np.exp(-gamma * (top_dists ** 2)) * cosine_term
+            w = np.power(w, power)
+
+            batch_probs = np.zeros((len(batch_te), n_classes))
+            for c_idx, cls in enumerate(self.classes_):
+                class_mask = (top_y == cls)
+                batch_probs[:, c_idx] = np.sum(w * class_mask, axis=1)
+
+            total_energy = np.sum(batch_probs, axis=1, keepdims=True)
+            total_energy[total_energy == 0] = 1.0  # avoid division by zero
+            batch_probs /= total_energy
+
+            probas.append(batch_probs)
+
+        return np.concatenate(probas)
+ 
     def predict(self, X):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
