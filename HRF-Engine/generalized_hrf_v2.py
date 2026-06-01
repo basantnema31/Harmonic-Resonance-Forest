@@ -134,13 +134,6 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
                 if self.X_raw_source_ is not None: self._apply_projection(self.X_raw_source_)
 
         self.dna_ = best_dna
-        # Sync exposed attributes so get_params() reflects evolved state
-        self.freq = best_dna['freq']
-        self.gamma = best_dna['gamma']
-        self.power = best_dna['power']
-        self.p = best_dna['p']
-        self.phase = best_dna['phase']
-        self.dim_reduction = best_dna['dim_reduction']
         return best_acc
 
     def predict_proba(self, X):
