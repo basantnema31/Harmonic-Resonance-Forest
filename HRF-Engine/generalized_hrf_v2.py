@@ -45,12 +45,20 @@ warnings.filterwarnings('ignore')
 
 # --- 1. THE HOLOGRAPHIC SOUL (Unit 3 - Multiverse Edition) ---
 class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
-    def __init__(self, k=15):
+    def __init__(self, k=15, freq=2.0, gamma=0.5, power=2.0,
+                 p=2.0, phase=0.0, dim_reduction='none'):
         self.k = k
+        self.freq = freq
+        self.gamma = gamma
+        self.power = power
+        self.p = p
+        self.phase = phase
+        self.dim_reduction = dim_reduction
+        # Built from constructor args so get_params()/clone()/Pipeline work
         self.dna_ = {
-            'freq': 2.0, 'gamma': 0.5, 'power': 2.0,
-            'metric': 'minkowski', 'p': 2.0,
-            'phase': 0.0, 'dim_reduction': 'none'
+            'freq': freq, 'gamma': gamma, 'power': power,
+            'metric': 'minkowski', 'p': p,
+            'phase': phase, 'dim_reduction': dim_reduction
         }
         self.projector_ = None
         self.X_raw_source_ = None
@@ -126,6 +134,13 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
                 if self.X_raw_source_ is not None: self._apply_projection(self.X_raw_source_)
 
         self.dna_ = best_dna
+        # Sync exposed attributes so get_params() reflects evolved state
+        self.freq = best_dna['freq']
+        self.gamma = best_dna['gamma']
+        self.power = best_dna['power']
+        self.p = best_dna['p']
+        self.phase = best_dna['phase']
+        self.dim_reduction = best_dna['dim_reduction']
         return best_acc
 
     def predict_proba(self, X):
