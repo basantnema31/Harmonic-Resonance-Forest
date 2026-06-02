@@ -147,7 +147,6 @@ High-precision correction and specialized filters.
 
 
 ## 5. Repository Structure
-
 For new contributors, here is how the project is organized:
 
 ```text
