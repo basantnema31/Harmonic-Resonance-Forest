@@ -785,7 +785,11 @@ def run_survival_curve():
         # 5. XGBoost (Safe Import)
         try:
             from xgboost import XGBClassifier
-        except ImportError:
+            xgb = XGBClassifier(n_estimators=50, eval_metric='logloss', verbosity=0)
+            xgb.fit(X_train, y_train)
+            s_xgb = accuracy_score(y_test, xgb.predict(X_test))
+            history["XGBoost"].append(s_xgb)
+        except Exception:
             s_xgb = 0.0
             history["XGBoost"].append(s_xgb)
         else:
