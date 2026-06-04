@@ -30,6 +30,7 @@ from sklearn.metrics import log_loss, accuracy_score
 from scipy.optimize import minimize
 from scipy.fft import fft
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from sklearn.utils import check_random_state
 
 # GPU CHECK
 try:
@@ -44,13 +45,23 @@ warnings.filterwarnings('ignore')
 
 # --- 1. THE HOLOGRAPHIC SOUL (Unit 3 - Multiverse Edition) ---
 class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
-    def __init__(self, k=15, random_state=None):
+    def __init__(self, k=15, random_state=None, freq=2.0, gamma=0.5,
+                 power=2.0, p=2.0, phase=0.0, dim_reduction='none'):
         self.k = k
         self.random_state = random_state
+        self.freq = freq
+        self.gamma = gamma
+        self.power = power
+        self.p = p
+        self.phase = phase
+        self.dim_reduction = dim_reduction
+        # dna_ is built from constructor args so get_params()/clone()/Pipeline all work.
+        # evolve() updates dna_ in-place (it is a learned attribute, trailing underscore).
+        # Constructor params stay frozen — they represent the *initial* configuration.
         self.dna_ = {
-            'freq': 2.0, 'gamma': 0.5, 'power': 2.0,
-            'metric': 'minkowski', 'p': 2.0,
-            'phase': 0.0, 'dim_reduction': 'none'
+            'freq': freq, 'gamma': gamma, 'power': power,
+            'metric': 'minkowski', 'p': p,
+            'phase': phase, 'dim_reduction': dim_reduction
         }
         self.projector_ = None
         self.X_raw_source_ = None
@@ -94,10 +105,9 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         self.X_raw_source_ = X
 
     def evolve(self, X_val, y_val, generations=1000):
-        # Local seeded RNG — fully isolated from global np.random and stdlib random.
-        # Passing random_state=None gives non-deterministic behaviour (same as before);
-        # passing an integer makes the entire evolution reproducible across runs.
-        rng = np.random.RandomState(self.random_state)
+        # check_random_state handles None (non-deterministic), int (seed),
+        # and RandomState instances — fully sklearn-compatible.
+        rng = check_random_state(self.random_state)
 
         n_universes = 10
         best_acc = self.score(X_val, y_val)
@@ -114,8 +124,9 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         if median_dist > 0:
             best_dna['freq'] = 3.14159 / median_dist
 
-        # Pre-define choice arrays once — avoids re-allocating each generation.
-        # 'metric' is intentionally excluded: it is never a mutable trait.
+        # Pre-define choice arrays once outside the loop.
+        # 'metric' is intentionally excluded — it is never a mutable trait
+        # and including it (as the original code did) silently wasted candidates.
         _MUTABLE_TRAITS = ['freq', 'gamma', 'power', 'p', 'phase', 'dim_reduction']
         _POWER_VALUES   = np.array([0.5, 1.0, 2.0, 3.0, 4.0, 6.0])
         _DIM_OPTIONS    = np.array(['none', 'holo', 'pca'])
@@ -131,15 +142,14 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
                 elif trait == 'gamma':
                     mutant['gamma'] = rng.uniform(0.1, 5.0)
                 elif trait == 'power':
-                    # Cast to Python float — downstream numpy ops expect a scalar,
-                    # not a numpy.float64 wrapper, to avoid silent type promotion.
+                    # Explicit float cast — prevents numpy.float64 leaking into dna_
                     mutant['power'] = float(rng.choice(_POWER_VALUES))
                 elif trait == 'p':
                     mutant['p'] = float(np.clip(mutant['p'] + rng.uniform(-0.5, 0.5), 0.5, 8.0))
                 elif trait == 'phase':
                     mutant['phase'] = rng.uniform(0, 3.14159)
                 elif trait == 'dim_reduction':
-                    # Cast to Python str — _apply_projection compares with == 'holo' / 'pca'.
+                    # Explicit str cast — _apply_projection compares with == 'holo'/'pca'
                     mutant['dim_reduction'] = str(rng.choice(_DIM_OPTIONS))
 
                 candidates.append(mutant)
@@ -243,7 +253,9 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             for j, row in enumerate(batch_te):
                 dists[j] = np.sum(np.abs(X_train - row) ** p_norm, axis=1) ** (1.0 / p_norm)
 
-            top_k_idx = np.argsort(dists, axis=1)[:, :self.k]
+            # np.argpartition is O(N) vs np.argsort's O(NlogN) —
+            # we only need the k smallest distances, not full sorted order.
+            top_k_idx = np.argpartition(dists, self.k, axis=1)[:, :self.k]
             row_idx   = np.arange(len(batch_te))[:, None]
             top_dists = dists[row_idx, top_k_idx]
             top_y     = y_train[top_k_idx]
@@ -475,33 +487,32 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         self.unit_11 = CalibratedClassifierCV(LinearSVC(C=0.5, dual=False, max_iter=5000), cv=5)
 
         # --- THE SOULS (Truly Divergent Seeds for Independent Thought) ---
-        # Each soul starts in a different region of DNA space and uses its own
-        # isolated random state, so parallel evolutions explore genuinely
-        # different optima rather than three random walks from the same origin.
+        # DNA params passed via constructor so clone()/get_params()/Pipeline
+        # all work correctly — no post-init dna_ mutation needed.
 
         # 12. THE HOLOGRAPHIC SOUL — Logic Seed
         # Low frequency, tight boundary: favours crisp decision regions.
-        self.unit_12 = HolographicSoulUnit(k=15, random_state=12)
-        self.unit_12.dna_.update({
-            'freq': 1.0, 'gamma': 0.1, 'power': 2.0,
-            'p': 2.0, 'phase': 0.0, 'dim_reduction': 'none'
-        })
+        self.unit_12 = HolographicSoulUnit(
+            k=15, random_state=12,
+            freq=1.0, gamma=0.1, power=2.0,
+            p=2.0, phase=0.0, dim_reduction='none'
+        )
 
         # 13. TWIN SOUL ALPHA — Chaos Seed
         # Full 2π cycle, loose gamma, holographic projection: wave/frequency explorer.
-        self.unit_13 = HolographicSoulUnit(k=15, random_state=13)
-        self.unit_13.dna_.update({
-            'freq': 6.2832, 'gamma': 2.0, 'power': 3.0,
-            'p': 2.0, 'phase': 1.5708, 'dim_reduction': 'holo'
-        })
+        self.unit_13 = HolographicSoulUnit(
+            k=15, random_state=13,
+            freq=6.2832, gamma=2.0, power=3.0,
+            p=2.0, phase=1.5708, dim_reduction='holo'
+        )
 
         # 14. TWIN SOUL BETA — Order Seed
         # π frequency, Manhattan norm, PCA projection: manifold/geometry explorer.
-        self.unit_14 = HolographicSoulUnit(k=15, random_state=14)
-        self.unit_14.dna_.update({
-            'freq': 3.14159, 'gamma': 0.5, 'power': 1.0,
-            'p': 1.0, 'phase': 0.7854, 'dim_reduction': 'pca'
-        })
+        self.unit_14 = HolographicSoulUnit(
+            k=15, random_state=14,
+            freq=3.14159, gamma=0.5, power=1.0,
+            p=1.0, phase=0.7854, dim_reduction='pca'
+        )
 
 
     def fit(self, X, y):
@@ -600,7 +611,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             w = np.abs(w)
             w = w / np.sum(w)
             final_p = np.zeros_like(preds_proba[0])
-            for k in range(14):
+            for k in range(len(preds_proba)):
                 final_p += w[k] * preds_proba[k]
             # We use LogLoss for smooth gradients, but print Accuracy
             ll = log_loss(y_evo_v, np.clip(final_p, 1e-15, 1-1e-15))
@@ -614,7 +625,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         res = minimize(
             loss_func,
             init_weights,
-            bounds=[(0.0, 1.0)] * 14,
+            bounds=[(0.0, 1.0)] * len(init_weights),
             constraints={'type': 'eq', 'fun': lambda w: 1 - sum(w)},
             method='SLSQP'
         )
