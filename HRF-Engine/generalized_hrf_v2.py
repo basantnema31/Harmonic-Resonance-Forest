@@ -15,7 +15,6 @@ Increase gen for Stability and accuracy.
 import numpy as np
 import pandas as pd
 import warnings
-import random
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import ExtraTreesClassifier
 from xgboost import XGBClassifier
@@ -31,6 +30,7 @@ from sklearn.metrics import log_loss, accuracy_score
 from scipy.optimize import minimize
 from scipy.fft import fft
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from sklearn.utils import check_random_state
 
 # GPU CHECK
 try:
@@ -45,16 +45,19 @@ warnings.filterwarnings('ignore')
 
 # --- 1. THE HOLOGRAPHIC SOUL (Unit 3 - Multiverse Edition) ---
 class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
-    def __init__(self, k=15, freq=2.0, gamma=0.5, power=2.0,
-                 p=2.0, phase=0.0, dim_reduction='none'):
+    def __init__(self, k=15, random_state=None, freq=2.0, gamma=0.5,
+                 power=2.0, p=2.0, phase=0.0, dim_reduction='none'):
         self.k = k
+        self.random_state = random_state
         self.freq = freq
         self.gamma = gamma
         self.power = power
         self.p = p
         self.phase = phase
         self.dim_reduction = dim_reduction
-        # Built from constructor args so get_params()/clone()/Pipeline work
+        # dna_ is built from constructor args so get_params()/clone()/Pipeline all work.
+        # evolve() updates dna_ in-place (it is a learned attribute, trailing underscore).
+        # Constructor params stay frozen — they represent the *initial* configuration.
         self.dna_ = {
             'freq': freq, 'gamma': gamma, 'power': power,
             'metric': 'minkowski', 'p': p,
@@ -64,6 +67,21 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         self.X_raw_source_ = None
 
     def fit(self, X, y):
+        """
+        Fit the resonance unit to training data.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Feature matrix.
+        y : array-like of shape (n_samples,)
+            Class labels.
+
+        Returns
+        -------
+        self : object
+            Fitted estimator.
+        """
         self.classes_ = np.unique(y)
         self._apply_projection(X)
         self.y_train_ = y
@@ -87,6 +105,10 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         self.X_raw_source_ = X
 
     def evolve(self, X_val, y_val, generations=1000):
+        # check_random_state handles None (non-deterministic), int (seed),
+        # and RandomState instances — fully sklearn-compatible.
+        rng = check_random_state(self.random_state)
+
         n_universes = 10
         best_acc = self.score(X_val, y_val)
         best_dna = self.dna_.copy()
@@ -102,17 +124,34 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         if median_dist > 0:
             best_dna['freq'] = 3.14159 / median_dist
 
+        # Pre-define choice arrays once outside the loop.
+        # 'metric' is intentionally excluded — it is never a mutable trait
+        # and including it (as the original code did) silently wasted candidates.
+        _MUTABLE_TRAITS = ['freq', 'gamma', 'power', 'p', 'phase', 'dim_reduction']
+        _POWER_VALUES   = np.array([0.5, 1.0, 2.0, 3.0, 4.0, 6.0])
+        _DIM_OPTIONS    = np.array(['none', 'holo', 'pca'])
+
         for i in range(generations):
             candidates = []
             for _ in range(n_universes):
                 mutant = best_dna.copy()
-                trait = random.choice(list(mutant.keys()))
-                if trait == 'freq': mutant['freq'] *= np.random.uniform(0.8, 1.25)
-                elif trait == 'gamma': mutant['gamma'] = np.random.uniform(0.1, 5.0)
-                elif trait == 'power': mutant['power'] = random.choice([0.5, 1.0, 2.0, 3.0, 4.0, 6.0])
-                elif trait == 'p': mutant['p'] = np.clip(mutant['p'] + np.random.uniform(-0.5, 0.5), 0.5, 8.0)
-                elif trait == 'phase': mutant['phase'] = np.random.uniform(0, 3.14159)
-                elif trait == 'dim_reduction': mutant['dim_reduction'] = random.choice(['none', 'holo', 'pca'])
+                trait = rng.choice(_MUTABLE_TRAITS)
+
+                if trait == 'freq':
+                    mutant['freq'] *= rng.uniform(0.8, 1.25)
+                elif trait == 'gamma':
+                    mutant['gamma'] = rng.uniform(0.1, 5.0)
+                elif trait == 'power':
+                    # Explicit float cast — prevents numpy.float64 leaking into dna_
+                    mutant['power'] = float(rng.choice(_POWER_VALUES))
+                elif trait == 'p':
+                    mutant['p'] = float(np.clip(mutant['p'] + rng.uniform(-0.5, 0.5), 0.5, 8.0))
+                elif trait == 'phase':
+                    mutant['phase'] = rng.uniform(0, 3.14159)
+                elif trait == 'dim_reduction':
+                    # Explicit str cast — _apply_projection compares with == 'holo'/'pca'
+                    mutant['dim_reduction'] = str(rng.choice(_DIM_OPTIONS))
+
                 candidates.append(mutant)
 
             generation_best_acc = -1
@@ -140,7 +179,7 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         if self.projector_ is not None: X_curr = self.projector_.transform(X)
         else: X_curr = X
         if GPU_AVAILABLE: return self._predict_proba_gpu(X_curr)
-        else: return np.zeros((len(X), len(self.classes_)))
+        else: return self._predict_proba_cpu(X_curr)
 
     def _predict_proba_gpu(self, X):
         X_tr_g = cp.asarray(self.X_train_, dtype=cp.float32)
@@ -187,7 +226,58 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             cp.get_default_memory_pool().free_all_blocks()
 
         return cp.asnumpy(cp.concatenate(probas))
+    def _predict_proba_cpu(self, X):
+        """NumPy fallback for predict_proba when CuPy/GPU is unavailable.
+        Mirrors _predict_proba_gpu exactly, using np instead of cp.
+        """
+        X_train = self.X_train_.astype(np.float32)
+        X_test  = np.asarray(X, dtype=np.float32)
+        y_train = self.y_train_
 
+        n_test    = len(X_test)
+        n_classes = len(self.classes_)
+        probas    = []
+        batch_size = 256
+
+        p_norm = self.dna_.get('p', 2.0)
+        gamma  = self.dna_['gamma']
+        freq   = self.dna_['freq']
+        power  = self.dna_['power']
+        phase  = self.dna_.get('phase', 0.0)
+
+        for i in range(0, n_test, batch_size):
+            end      = min(i + batch_size, n_test)
+            batch_te = X_test[i:end]
+
+            dists = np.empty((len(batch_te), len(X_train)), dtype=np.float32)
+            for j, row in enumerate(batch_te):
+                dists[j] = np.sum(np.abs(X_train - row) ** p_norm, axis=1) ** (1.0 / p_norm)
+
+            # np.argpartition is O(N) vs np.argsort's O(NlogN) —
+            # we only need the k smallest distances, not full sorted order.
+            top_k_idx = np.argpartition(dists, self.k, axis=1)[:, :self.k]
+            row_idx   = np.arange(len(batch_te))[:, None]
+            top_dists = dists[row_idx, top_k_idx]
+            top_y     = y_train[top_k_idx]
+
+            cosine_term = 1.0 + np.cos(freq * top_dists + phase)
+            cosine_term = np.maximum(cosine_term, 0.0)
+            w = np.exp(-gamma * (top_dists ** 2)) * cosine_term
+            w = np.power(w, power)
+
+            batch_probs = np.zeros((len(batch_te), n_classes))
+            for c_idx, cls in enumerate(self.classes_):
+                class_mask = (top_y == cls)
+                batch_probs[:, c_idx] = np.sum(w * class_mask, axis=1)
+
+            total_energy = np.sum(batch_probs, axis=1, keepdims=True)
+            total_energy[total_energy == 0] = 1.0  # avoid division by zero
+            batch_probs /= total_energy
+
+            probas.append(batch_probs)
+
+        return np.concatenate(probas)
+ 
     def predict(self, X):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
@@ -326,7 +416,6 @@ from sklearn.svm import NuSVC
 import numpy as np
 import pandas as pd
 import warnings
-import random
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from xgboost import XGBClassifier
@@ -344,27 +433,9 @@ from sklearn.metrics import log_loss, accuracy_score
 from sklearn.utils.validation import check_X_y
 from sklearn.model_selection import train_test_split
 from scipy.optimize import minimize
-from scipy.spatial.distance import cdist
 
-# --- WAVE RESONANCE KERNEL ---
-def wave_resonance_kernel(X, Y):
-    """
-    Wavelet Resonance Kernel
-    Combines cosine resonance + wave decay
-    """
-
-    X = np.asarray(X)
-    Y = np.asarray(Y)
-
-    dist = cdist(X, Y, metric='euclidean')
-
-    resonance = np.cos(2.5 * dist)
-    decay = np.exp(-0.5 * (dist ** 2))
-
-    return resonance * decay
-
-# --- 7. THE TITAN-16 "BEAST MODE" (Endgame Edition) ---
-class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
+# --- 7. THE TITAN-14 "BEAST MODE" (Endgame Edition) ---
+class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
     def __init__(self, verbose=False):
         self.verbose = verbose
         # Robust scaling with wider quantile to catch outliers
@@ -372,7 +443,7 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
         self.weights_ = None
         self.classes_ = None
 
-        # --- THE 16 BEASTS (Maximum Fidelity) ---
+        # --- THE 14 BEASTS (Maximum Fidelity) ---
 
         # 1. LOGIC ALPHA (The Overlord - ExtraTrees)
         self.unit_01 = ExtraTreesClassifier(n_estimators=1000, bootstrap=False,
@@ -389,12 +460,12 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
         # 4. GRADIENT ALPHA (The Sniper - XGBoost Deep)
         self.unit_04 = XGBClassifier(n_estimators=500, max_depth=6, learning_rate=0.02,
                                      subsample=0.8, colsample_bytree=0.8,
-                                     use_label_encoder=False, eval_metric='logloss',
+                                     eval_metric='logloss',
                                      tree_method='hist', n_jobs=-1, random_state=42)
 
         # 5. GRADIENT BETA (The Nuke - XGBoost Fast)
         self.unit_05 = XGBClassifier(n_estimators=1000, max_depth=3, learning_rate=0.1,
-                                     use_label_encoder=False, eval_metric='logloss',
+                                     eval_metric='logloss',
                                      tree_method='hist', n_jobs=-1, random_state=42)
 
         # 6. KERNEL ALPHA (The Warp - NuSVC)
@@ -402,12 +473,6 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
 
         # 7. KERNEL BETA (The Manifold - Poly SVC)
         self.unit_07 = SVC(kernel='poly', degree=2, C=10.0, probability=True, random_state=42)
-
-        # 15. KERNEL GAMMA (The Sigmoid - Neural Boundary)
-        self.unit_15 = SVC(kernel='sigmoid', C=1.0, gamma='scale', coef0=0.0, probability=True, random_state=42)
-
-        # 16. WAVE RESONANCE KERNEL (The Harmonic Field)
-        self.unit_16 = SVC(kernel=wave_resonance_kernel, C=1.0, probability=True, random_state=42)
 
         # 8. GEOMETRY ALPHA (The Cluster - Euclidean)
         self.unit_08 = KNeighborsClassifier(n_neighbors=3, weights='distance', metric='euclidean', n_jobs=-1)
@@ -421,16 +486,33 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
         # 11. RESONANCE (The Wave - Calibrated Linear)
         self.unit_11 = CalibratedClassifierCV(LinearSVC(C=0.5, dual=False, max_iter=5000), cv=5)
 
-        # --- THE SOULS (Now with Divergent Seeds for Independent Thought) ---
+        # --- THE SOULS (Truly Divergent Seeds for Independent Thought) ---
+        # DNA params passed via constructor so clone()/get_params()/Pipeline
+        # all work correctly — no post-init dna_ mutation needed.
 
-        # 12. THE HOLOGRAPHIC SOUL (The Original - Logic Seed)
-        self.unit_12 = HolographicSoulUnit(k=15) # Will evolve independently
+        # 12. THE HOLOGRAPHIC SOUL — Logic Seed
+        # Low frequency, tight boundary: favours crisp decision regions.
+        self.unit_12 = HolographicSoulUnit(
+            k=15, random_state=12,
+            freq=1.0, gamma=0.1, power=2.0,
+            p=2.0, phase=0.0, dim_reduction='none'
+        )
 
-        # 13. TWIN SOUL ALPHA (Mirror 1 - Chaos Seed)
-        self.unit_13 = HolographicSoulUnit(k=15) # Will evolve independently
+        # 13. TWIN SOUL ALPHA — Chaos Seed
+        # Full 2π cycle, loose gamma, holographic projection: wave/frequency explorer.
+        self.unit_13 = HolographicSoulUnit(
+            k=15, random_state=13,
+            freq=6.2832, gamma=2.0, power=3.0,
+            p=2.0, phase=1.5708, dim_reduction='holo'
+        )
 
-        # 14. TWIN SOUL BETA (Mirror 2 - Order Seed)
-        self.unit_14 = HolographicSoulUnit(k=15) # Will evolve independently
+        # 14. TWIN SOUL BETA — Order Seed
+        # π frequency, Manhattan norm, PCA projection: manifold/geometry explorer.
+        self.unit_14 = HolographicSoulUnit(
+            k=15, random_state=14,
+            freq=3.14159, gamma=0.5, power=1.0,
+            p=1.0, phase=0.7854, dim_reduction='pca'
+        )
 
 
     def fit(self, X, y):
@@ -450,7 +532,7 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
 
         if self.verbose:
             print("\n" + "!"*60)
-            print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (16D) INITIATED <<<")
+            print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (14D) INITIATED <<<")
             print("!"*60)
             print(" > Phase 1: Awakening the Souls (Evolutionary Adaptation)...")
 
@@ -488,7 +570,9 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
             print(" > Phase 2: Deploying Logic & Physics Units...")
 
         other_units = [
-            self.unit_01, self.unit_02, self.unit_03, self.unit_04, self.unit_05, self.unit_06, self.unit_07, self.unit_15, self.unit_16, self.unit_08, self.unit_09, self.unit_10, self.unit_11
+            self.unit_01, self.unit_02, self.unit_03, self.unit_04,
+            self.unit_05, self.unit_06, self.unit_07, self.unit_08,
+            self.unit_09, self.unit_10, self.unit_11
         ]
 
         for i, unit in enumerate(other_units):
@@ -504,7 +588,7 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
 
         # --- STEP C: OPTIMIZATION (Finding the Perfect Consensus) ---
         if self.verbose:
-            print(" > Phase 3: The Council of 16 (Weight Optimization)...")
+            print(" > Phase 3: The Council of 14 (Weight Optimization)...")
 
         # Gather all units including the now-evolved souls
         all_units = other_units + [self.unit_12, self.unit_13, self.unit_14]
@@ -552,7 +636,7 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
             print("-" * 50)
             print("   >>> THE COUNCIL WEIGHTS <<<")
             names = ["Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2", "Nu-Warp",
-                     "PolyKer", "Sigmoid-Kernel", "Wave-Resonance", "Geom-K3", "Geom-K9", "Space-QDA", "Resonance",
+                     "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA", "Resonance",
                      "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3"]
 
             # Sort by influence
@@ -582,7 +666,10 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
         X_scaled = self.scaler_.transform(X)
 
         all_units = [
-            self.unit_01, self.unit_02, self.unit_03, self.unit_04, self.unit_05, self.unit_06, self.unit_07, self.unit_15, self.unit_16, self.unit_08, self.unit_09, self.unit_10, self.unit_11, self.unit_12, self.unit_13, self.unit_14
+            self.unit_01, self.unit_02, self.unit_03, self.unit_04,
+            self.unit_05, self.unit_06, self.unit_07, self.unit_08,
+            self.unit_09, self.unit_10, self.unit_11,
+            self.unit_12, self.unit_13, self.unit_14
         ]
 
         final_pred = None
@@ -607,7 +694,7 @@ class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 def HarmonicResonanceForest_Ultimate(n_estimators=None):
-    return HarmonicResonanceClassifier_BEAST_16D(verbose=True)
+    return HarmonicResonanceClassifier_BEAST_14D(verbose=True)
 
 from sklearn.datasets import fetch_openml
 from sklearn.pipeline import make_pipeline
@@ -678,7 +765,6 @@ def run_comparative_benchmark(dataset_name, openml_id, sample_limit=3000, custom
         "XGBoost (GPU)": XGBClassifier(
             device='cuda',
             tree_method='hist',
-            use_label_encoder=False,
             eval_metric='logloss',
             random_state=42
         ),
@@ -1013,4 +1099,3 @@ The Soul Unit is domain-specific. It is designed for **Periodic, Harmonic, and G
 ---
 *> "We do not seek to be the fastest. We seek to be the most true." — HRF Research Philosophy*
 """
-
