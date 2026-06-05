@@ -45,12 +45,23 @@ warnings.filterwarnings('ignore')
 
 # --- 1. THE HOLOGRAPHIC SOUL (Unit 3 - Multiverse Edition) ---
 class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
-    def __init__(self, k=15):
+    def __init__(self, k=15, random_state=None, freq=2.0, gamma=0.5,
+                 power=2.0, p=2.0, phase=0.0, dim_reduction='none'):
         self.k = k
+        self.random_state = random_state
+        self.freq = freq
+        self.gamma = gamma
+        self.power = power
+        self.p = p
+        self.phase = phase
+        self.dim_reduction = dim_reduction
+        # dna_ is built from constructor args so get_params()/clone()/Pipeline all work.
+        # evolve() updates dna_ in-place (it is a learned attribute, trailing underscore).
+        # Constructor params stay frozen — they represent the *initial* configuration.
         self.dna_ = {
-            'freq': 2.0, 'gamma': 0.5, 'power': 2.0,
-            'metric': 'minkowski', 'p': 2.0,
-            'phase': 0.0, 'dim_reduction': 'none'
+            'freq': freq, 'gamma': gamma, 'power': power,
+            'metric': 'minkowski', 'p': p,
+            'phase': phase, 'dim_reduction': dim_reduction
         }
         self.projector_ = None
         self.X_raw_source_ = None
@@ -75,6 +86,7 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         self._apply_projection(X)
         self.y_train_ = y
         return self
+
 
     def _apply_projection(self, X):
         if self.dna_['dim_reduction'] == 'holo':
