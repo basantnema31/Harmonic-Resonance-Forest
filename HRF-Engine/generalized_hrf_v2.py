@@ -65,27 +65,12 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         }
         self.projector_ = None
         self.X_raw_source_ = None
-
-    def fit(self, X, y):
-        """
-        Fit the resonance unit to training data.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Feature matrix.
-        y : array-like of shape (n_samples,)
-            Class labels.
-
-        Returns
-        -------
-        self : object
-            Fitted estimator.
-        """
-        self.classes_ = np.unique(y)
-        self._apply_projection(X)
-        self.y_train_ = y
-        return self
+    
+    def fit ( self , X , y ): 
+            self . classes_ = np . unique ( y ) 
+            self . _apply_projection ( X ) 
+            self . y_train_ = y 
+            return self
 
     def _apply_projection(self, X):
         if self.dna_['dim_reduction'] == 'holo':
@@ -293,12 +278,12 @@ class QuantumFieldUnit(BaseEstimator, ClassifierMixin):
         self.classes_ = None
         self.dna_ = {'gamma': 1.0, 'n_components': 100}
 
-    def fit(self, X, y):
-        self.classes_ = np.unique(y)
-        self.rbf_feature_.set_params(gamma=self.dna_['gamma'], n_components=self.dna_['n_components'])
-        X_quantum = self.rbf_feature_.fit_transform(X)
-        self.classifier_.fit(X_quantum, y)
-        return self
+    def fit (self, X, y ) :
+            self.classes_ = np.unique(y)
+            self.rbf_feature_.set_params(gamma=self.dna_['gamma'], n_components=self.dna_['n_components'])
+            X_quantum = self.rbf_feature_.fit_transform(X)
+            self.classifier_.fit(X_quantum, y)
+            return self
 
     def predict_proba(self, X):
         X_quantum = self.rbf_feature_.transform(X)
@@ -516,20 +501,22 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
 
 
     def fit(self, X, y):
-        # 1. Validation and Scaling
-        y = np.array(y).astype(int)
-        X, y = check_X_y(X, y)
-        self.classes_ = np.unique(y)
-        n_classes = len(self.classes_)
-
-        X_scaled = self.scaler_.fit_transform(X)
-
-        # 2. Split for INTERNAL EVOLUTION (The Self-Talk Phase)
-        # We need a validation set specifically so the Souls can learn what works.
-        X_evo_t, X_evo_v, y_evo_t, y_evo_v = train_test_split(
-            X_scaled, y, test_size=0.2, stratify=y, random_state=42
-        )
-
+            self.failed_units_ = []
+            # Create a list of all your sub-units to loop through them easily
+            units_list = [
+                self.unit_01, self.unit_02, self.unit_03, self.unit_04, self.unit_05,
+                self.unit_06, self.unit_07, self.unit_08, self.unit_09, self.unit_10,
+                self.unit_11, self.unit_12, self.unit_13, self.unit_14
+            ]
+            
+            for idx, unit in enumerate(units_list):
+                        try:
+                            unit.fit(X, y)
+                        except Exception as e:
+                            print(f"Warning: Unit {idx + 1} failed during training: {e}")
+                            self.failed_units_.append(idx + 1)
+                            
+                  
         if self.verbose:
             print("\n" + "!"*60)
             print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (14D) INITIATED <<<")
