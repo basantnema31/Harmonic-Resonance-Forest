@@ -65,16 +65,12 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         }
         self.projector_ = None
         self.X_raw_source_ = None
-
-def fit(self, X, y):
-        self.failed_units_ = []
-        for idx, unit in enumerate(self.units):
-            try:
-                unit.fit(X, y)
-            except Exception as e:
-                print(f"Warning: Unit {idx} failed during training: {e}")
-                self.failed_units_.append(idx)
-        return self
+    
+    def fit ( self , X , y ): 
+            self . classes_ = np . unique ( y ) 
+            self . _apply_projection ( X ) 
+            self . y_train_ = y 
+            return self
 
     def _apply_projection(self, X):
         if self.dna_['dim_reduction'] == 'holo':
@@ -514,13 +510,13 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             ]
             
             for idx, unit in enumerate(units_list):
-                try:
-                    unit.fit(X, y)
-                except Exception as e:
-                    print(f"Warning: Unit {idx + 1} failed during training: {e}")
-                    self.failed_units_.append(idx + 1)
-            return self
-
+                        try:
+                            unit.fit(X, y)
+                        except Exception as e:
+                            print(f"Warning: Unit {idx + 1} failed during training: {e}")
+                            self.failed_units_.append(idx + 1)
+                            
+                  
         if self.verbose:
             print("\n" + "!"*60)
             print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (14D) INITIATED <<<")
