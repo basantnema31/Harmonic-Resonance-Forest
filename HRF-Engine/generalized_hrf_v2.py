@@ -65,12 +65,34 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         }
         self.projector_ = None
         self.X_raw_source_ = None
+
+    def fit(self, X, y):
+        """
+        Fit the resonance unit to training data.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Feature matrix.
+        y : array-like of shape (n_samples,)
+            Class labels.
+
+        Returns
+        -------
+        self : object
+            Fitted estimator.
+        """
+        self.classes_ = np.unique(y)
+        self._apply_projection(X)
+        self.y_train_ = y
+        return self
     
     def fit ( self , X , y ): 
             self . classes_ = np . unique ( y ) 
             self . _apply_projection ( X ) 
             self . y_train_ = y 
             return self
+
 
     def _apply_projection(self, X):
         if self.dna_['dim_reduction'] == 'holo':
@@ -234,6 +256,8 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             end      = min(i + batch_size, n_test)
             batch_te = X_test[i:end]
 
+            diff  = np.abs(batch_te[:, None, :] - X_train[None, :, :])
+            dists = np.sum(diff ** p_norm, axis=2) ** (1.0 / p_norm)
             dists = np.empty((len(batch_te), len(X_train)), dtype=np.float32)
             for j, row in enumerate(batch_te):
                 dists[j] = np.sum(np.abs(X_train - row) ** p_norm, axis=1) ** (1.0 / p_norm)
@@ -419,6 +443,174 @@ from sklearn.utils.validation import check_X_y
 from sklearn.model_selection import train_test_split
 from scipy.optimize import minimize
 
+# --- 7a. GOLDEN PHI UNIT (Sector D — Unit 15: Biological Spiral Mapping) ---
+class GoldenPhiUnit(BaseEstimator, ClassifierMixin):
+    """
+    Physics-inspired classifier using the Golden Ratio (φ = 1.618...) as a
+    feature importance prior before classification.
+
+    Biological signals — EEG, ECG, HRV — exhibit self-similar structure at
+    Fibonacci-spaced scales. GoldenPhiUnit encodes this by weighting feature
+    dimensions with a decreasing geometric sequence (ratio 1/φ), giving
+    exponentially more importance to early features (low-index channels)
+    which correspond to lower-frequency / higher-amplitude components.
+
+    The resulting φ-weighted space is then classified with a k-NN estimator,
+    keeping the unit interpretable and consistent with the Soul-unit ethos.
+
+    Architecture reference: Titan-26 Sector D, Unit 18.
+    """
+
+    PHI = (1.0 + np.sqrt(5.0)) / 2.0  # 1.6180339887...
+
+    def __init__(self, n_neighbors=7, random_state=None):
+        self.n_neighbors = n_neighbors
+        self.random_state = random_state
+
+    def _phi_weights(self, n_features):
+        """
+        Compute normalised φ^{-k} weights for k = 0, 1, ..., n_features-1.
+        Decreasing sequence: [1, 1/φ, 1/φ², ...] → normalised to sum = 1.
+        """
+        k = np.arange(n_features, dtype=np.float64)
+        w = self.PHI ** (-k)
+        return w / w.sum()
+
+    def _transform(self, X):
+        """Apply golden-ratio feature weighting."""
+        return X * self.phi_weights_
+
+    def fit(self, X, y):
+        from sklearn.utils.validation import check_X_y
+        X, y = check_X_y(X, y)
+        self.classes_ = np.unique(y)
+        self.n_features_in_ = X.shape[1]
+        self.phi_weights_ = self._phi_weights(self.n_features_in_)
+        self.clf_ = KNeighborsClassifier(
+            n_neighbors=self.n_neighbors,
+            metric='euclidean',
+            algorithm='auto',
+            n_jobs=-1,
+        )
+        self.clf_.fit(self._transform(X), y)
+        return self
+
+    def predict_proba(self, X):
+        check_is_fitted(self, 'clf_')
+        X = check_array(X)
+        return self.clf_.predict_proba(self._transform(X))
+
+    def predict(self, X):
+        check_is_fitted(self, 'clf_')
+        X = check_array(X)
+        return self.clf_.predict(self._transform(X))
+
+    def score(self, X, y):
+        return np.mean(self.predict(X) == y)
+
+
+# --- 7b. GRAVITY POTENTIAL UNIT (Sector D — Unit 21: Inverse-Square Law) ---
+class GravityPotentialUnit(BaseEstimator, ClassifierMixin):
+    """
+    Physics-inspired classifier using Newtonian gravitational potential
+    (softened inverse-square law) as the decision mechanism.
+
+    Each training point acts as a gravitational mass. A test point is
+    attracted to training points proportionally to 1 / (r² + ε), where r
+    is the Euclidean distance and ε (softening length) prevents singularities.
+    Class probabilities are derived from the total gravitational potential
+    exerted by each class's training points on the test point.
+
+    Biological relevance: neural firing patterns cluster in feature space.
+    Close same-class points exert strong attraction; distant or cross-class
+    points contribute weakly, producing soft, naturally-curved boundaries
+    that adapt to overlapping class distributions — a known challenge in
+    EEG classification.
+
+    Architecture reference: Titan-26 Sector D, Unit 21.
+    """
+
+    def __init__(self, softening=1e-2, batch_size=512, random_state=None):
+        """
+        Parameters
+        ----------
+        softening : float, default=1e-2
+            Softening length ε in 1/(r²+ε²). Prevents potential singularity
+            when a test point coincides exactly with a training point.
+            Analogous to Plummer softening in N-body simulations.
+        batch_size : int, default=512
+            Test samples processed per batch. Keeps (batch × n_train)
+            arrays memory-safe without sacrificing vectorisation.
+        """
+        self.softening = softening
+        self.batch_size = batch_size
+        self.random_state = random_state
+
+    def fit(self, X, y):
+        from sklearn.utils.validation import check_X_y
+        X, y = check_X_y(X, y)
+        self.classes_ = np.unique(y)
+        self.n_features_in_ = X.shape[1]
+        # Store per-class training matrices — avoids repeated boolean masking
+        # at inference time and makes predict_proba fully vectorised per class.
+        self.X_by_class_ = {
+            cls: X[y == cls].astype(np.float32)
+            for cls in self.classes_
+        }
+        return self
+
+    def _batch_potential(self, X_batch, X_class):
+        """
+        Compute total softened gravitational potential for one batch vs one class.
+
+        Shape: X_batch (B, d), X_class (N_c, d) → output (B,)
+
+        Uses row-wise loop over X_class chunks to keep memory at
+        O(B × chunk) rather than O(B × N_c × d) for large N_c.
+        """
+        B = len(X_batch)
+        potential = np.zeros(B, dtype=np.float64)
+        eps_sq = self.softening ** 2
+
+        chunk = 256
+        for start in range(0, len(X_class), chunk):
+            X_c = X_class[start : start + chunk]                  # (chunk, d)
+            diff = X_batch[:, None, :] - X_c[None, :, :]         # (B, chunk, d)
+            sq_dist = np.sum(diff ** 2, axis=2)                   # (B, chunk)
+            potential += (1.0 / (sq_dist + eps_sq)).sum(axis=1)   # (B,)
+
+        return potential
+
+    def predict_proba(self, X):
+        check_is_fitted(self, 'X_by_class_')
+        X = check_array(X).astype(np.float32)
+        n_samples = len(X)
+        n_classes = len(self.classes_)
+        proba = np.zeros((n_samples, n_classes), dtype=np.float64)
+
+        for i in range(0, n_samples, self.batch_size):
+            batch = X[i : i + self.batch_size]
+            for c_idx, cls in enumerate(self.classes_):
+                proba[i : i + len(batch), c_idx] = self._batch_potential(
+                    batch, self.X_by_class_[cls]
+                )
+
+        # Normalise rows to valid probability simplex
+        row_sums = proba.sum(axis=1, keepdims=True)
+        row_sums = np.where(row_sums == 0, 1.0, row_sums)
+        return proba / row_sums
+
+    def predict(self, X):
+        check_is_fitted(self, 'X_by_class_')
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+
+    def score(self, X, y):
+        return np.mean(self.predict(X) == y)
+
+
+# --- 7. THE TITAN-16 "BEAST MODE" (Extended with Sector D Physics Units) ---
+class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
+
 # --- 7. THE TITAN-14 "BEAST MODE" (Endgame Edition) ---
 class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
     def __init__(self, verbose=False):
@@ -499,6 +691,16 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             p=1.0, phase=0.7854, dim_reduction='pca'
         )
 
+        # --- SECTOR D: MACRO-PHYSICAL LAYERS (Titan-26 Extension) ---
+
+        # 15. GOLDEN PHI (Biological Spiral Mapping — Unit 18 in Titan-26)
+        # φ-weighted feature space captures self-similar EEG/ECG signal structure.
+        self.unit_15 = GoldenPhiUnit(n_neighbors=7, random_state=42)
+
+        # 16. GRAVITY POTENTIAL (Inverse-Square Law Attraction — Unit 21 in Titan-26)
+        # Newtonian softened potential produces curved, physics-informed boundaries.
+        self.unit_16 = GravityPotentialUnit(softening=1e-2, batch_size=512, random_state=42)
+
 
     def fit(self, X, y):
             self.failed_units_ = []
@@ -559,6 +761,8 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         other_units = [
             self.unit_01, self.unit_02, self.unit_03, self.unit_04,
             self.unit_05, self.unit_06, self.unit_07, self.unit_08,
+            self.unit_09, self.unit_10, self.unit_11,
+            self.unit_15, self.unit_16,   # Sector D physics units
             self.unit_09, self.unit_10, self.unit_11
         ]
 
@@ -622,6 +826,12 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         if self.verbose:
             print("-" * 50)
             print("   >>> THE COUNCIL WEIGHTS <<<")
+            names = [
+                "Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2",
+                "Nu-Warp", "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA",
+                "Resonance", "GoldenPhi", "Gravity",
+                "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3",
+            ]
             names = ["Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2", "Nu-Warp",
                      "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA", "Resonance",
                      "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3"]
@@ -656,6 +866,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             self.unit_01, self.unit_02, self.unit_03, self.unit_04,
             self.unit_05, self.unit_06, self.unit_07, self.unit_08,
             self.unit_09, self.unit_10, self.unit_11,
+            self.unit_15, self.unit_16,    # Sector D physics units — must match fit() order
             self.unit_12, self.unit_13, self.unit_14
         ]
 
