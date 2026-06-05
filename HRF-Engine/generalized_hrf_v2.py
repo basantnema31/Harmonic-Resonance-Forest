@@ -232,7 +232,9 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             diff  = np.abs(batch_te[:, None, :] - X_train[None, :, :])
             dists = np.sum(diff ** p_norm, axis=2) ** (1.0 / p_norm)
 
-            top_k_idx = np.argsort(dists, axis=1)[:, :self.k]
+            # np.argpartition is O(N) vs np.argsort's O(NlogN) —
+            # we only need the k smallest distances, not full sorted order.
+            top_k_idx = np.argpartition(dists, self.k, axis=1)[:, :self.k]
             row_idx   = np.arange(len(batch_te))[:, None]
             top_dists = dists[row_idx, top_k_idx]
             top_y     = y_train[top_k_idx]
