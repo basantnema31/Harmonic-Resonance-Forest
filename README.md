@@ -24,6 +24,10 @@ We welcome meaningful contributions across:
 - Code improvements
 
 > ⚠️ Note: This is a research-grade repository. All PRs must maintain scientific rigor and performance benchmarks.
+> 
+> ⚠️ gssoc-2026 branch is experimental and may contain unstable or incomplete implementations.
+> 
+> For stable benchmarks, always use main branch.
 
 
 ---
