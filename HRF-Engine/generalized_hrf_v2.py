@@ -229,9 +229,8 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             end      = min(i + batch_size, n_test)
             batch_te = X_test[i:end]
 
-            dists = np.empty((len(batch_te), len(X_train)), dtype=np.float32)
-            for j, row in enumerate(batch_te):
-                dists[j] = np.sum(np.abs(X_train - row) ** p_norm, axis=1) ** (1.0 / p_norm)
+            diff  = np.abs(batch_te[:, None, :] - X_train[None, :, :])
+            dists = np.sum(diff ** p_norm, axis=2) ** (1.0 / p_norm)
 
             top_k_idx = np.argsort(dists, axis=1)[:, :self.k]
             row_idx   = np.arange(len(batch_te))[:, None]
@@ -579,7 +578,7 @@ class GravityPotentialUnit(BaseEstimator, ClassifierMixin):
 
 
 # --- 7. THE TITAN-16 "BEAST MODE" (Extended with Sector D Physics Units) ---
-class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
+class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
     def __init__(self, verbose=False):
         self.verbose = verbose
         # Robust scaling with wider quantile to catch outliers
@@ -669,7 +668,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
 
         if self.verbose:
             print("\n" + "!"*60)
-            print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (14D) INITIATED <<<")
+            print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (16D) INITIATED <<<")
             print("!"*60)
             print(" > Phase 1: Awakening the Souls (Evolutionary Adaptation)...")
 
@@ -726,7 +725,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
 
         # --- STEP C: OPTIMIZATION (Finding the Perfect Consensus) ---
         if self.verbose:
-            print(" > Phase 3: The Council of 14 (Weight Optimization)...")
+            print(" > Phase 3: The Council of 16 (Weight Optimization)...")
 
         # Gather all units including the now-evolved souls
         all_units = other_units + [self.unit_12, self.unit_13, self.unit_14]
@@ -810,6 +809,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             self.unit_01, self.unit_02, self.unit_03, self.unit_04,
             self.unit_05, self.unit_06, self.unit_07, self.unit_08,
             self.unit_09, self.unit_10, self.unit_11,
+            self.unit_15, self.unit_16,    # Sector D physics units — must match fit() order
             self.unit_12, self.unit_13, self.unit_14
         ]
 
@@ -835,7 +835,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 def HarmonicResonanceForest_Ultimate(n_estimators=None):
-    return HarmonicResonanceClassifier_BEAST_14D(verbose=True)
+    return HarmonicResonanceClassifier_BEAST_16D(verbose=True)
 
 from sklearn.datasets import fetch_openml
 from sklearn.pipeline import make_pipeline
