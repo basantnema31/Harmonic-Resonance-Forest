@@ -126,7 +126,7 @@ def plot_decision_boundary(
     fig, ax = plt.subplots(figsize=figsize)
 
     # Create color map for decision regions
-    region_cmap = plt.cm.get_cmap(cmap)
+    region_cmap = plt.get_cmap(cmap)
     region_colors = region_cmap(np.linspace(0, 1, n_classes))
 
     # Plot decision regions with contourf
@@ -149,7 +149,7 @@ def plot_decision_boundary(
 
     # Define markers for different classes
     markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p', '*', 'H']
-    marker_colors = plt.cm.get_cmap('tab10')(
+    marker_colors = plt.get_cmap('tab10')(
         np.linspace(0, 1, max(n_classes, 10))
     )
 

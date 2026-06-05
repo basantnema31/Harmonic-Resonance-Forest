@@ -117,7 +117,7 @@ class ResonanceCaptureWrapper:
                     else:
                         u_proba = np.ones((len(X), len(self.model.classes_))) / len(self.model.classes_)
                     units_proba.append(u_proba)
-                except:
+                except Exception:
                     units_proba.append(np.ones((len(X), len(self.model.classes_))) / len(self.model.classes_))
 
             # Weight by model weights

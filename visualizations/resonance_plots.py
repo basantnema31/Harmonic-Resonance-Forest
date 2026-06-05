@@ -10,74 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from sklearn.decomposition import PCA
+from .decision_boundary import plot_decision_boundary
 
-def plot_decision_boundary(
-    model,
-    X,
-    y,
-    resolution=200,
-    figsize=(10, 8)
-) -> Figure:
-    """
-    Visualize HRF decision boundaries using PCA projection.
-    """
-
-    X = np.asarray(X)
-    y = np.asarray(y)
-
-    # PCA to 2D
-    pca = PCA(n_components=2)
-    X_2d = pca.fit_transform(X)
-
-    # Create mesh grid
-    x_min, x_max = X_2d[:, 0].min() - 1, X_2d[:, 0].max() + 1
-    y_min, y_max = X_2d[:, 1].min() - 1, X_2d[:, 1].max() + 1
-
-    xx, yy = np.meshgrid(
-        np.linspace(x_min, x_max, resolution),
-        np.linspace(y_min, y_max, resolution)
-    )
-
-    grid = np.c_[xx.ravel(), yy.ravel()]
-
-    # Convert back to original feature space
-    grid_original = pca.inverse_transform(grid)
-
-    Z = model.predict(grid_original)
-    Z = Z.reshape(xx.shape)
-
-    fig, ax = plt.subplots(figsize=figsize)
-
-    ax.contourf(
-        xx,
-        yy,
-        Z,
-        alpha=0.4,
-        cmap="viridis"
-    )
-
-    scatter = ax.scatter(
-        X_2d[:, 0],
-        X_2d[:, 1],
-        c=y,
-        edgecolor="black",
-        cmap="viridis"
-    )
-
-    ax.set_title(
-        "HRF Decision Boundary Visualization",
-        fontsize=14,
-        fontweight="bold"
-    )
-
-    ax.set_xlabel("Principal Component 1")
-    ax.set_ylabel("Principal Component 2")
-
-    plt.colorbar(scatter)
-
-    plt.tight_layout()
-
-    return fig
 def plot_class_resonance(
     model: object,
     sample: Union[np.ndarray, list],
@@ -146,8 +80,8 @@ def plot_class_resonance(
     predicted_class = classes[predicted_idx]
 
     # Create color array: highlight predicted class
-    colors = plt.cm.get_cmap(color_palette)(np.linspace(0.3, 0.9, len(classes)))
-    highlight_color = plt.cm.get_cmap('Reds')(0.8)
+    colors = plt.get_cmap(color_palette)(np.linspace(0.3, 0.9, len(classes)))
+    highlight_color = plt.get_cmap('Reds')(0.8)
     bar_colors = [highlight_color if i == predicted_idx else colors[i]
                   for i in range(len(classes))]
 

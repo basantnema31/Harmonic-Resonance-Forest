@@ -41,9 +41,11 @@ if st.sidebar.button("Load Demo Model"):
     # HRF load
     import importlib.util
 
+    import os
+    dir_path = os.path.dirname(os.path.abspath(__file__))
     spec = importlib.util.spec_from_file_location(
         "generalized_hrf_v2",
-        "../HRF-Engine/generalized_hrf_v2.py"
+        os.path.join(dir_path, "../HRF-Engine/generalized_hrf_v2.py")
     )
 
     hrf_module = importlib.util.module_from_spec(spec)
@@ -407,7 +409,7 @@ Generated Successfully.
         "Report Exported"
     )
 
-    
+
 # -------------------------
 # Footer
 # -------------------------

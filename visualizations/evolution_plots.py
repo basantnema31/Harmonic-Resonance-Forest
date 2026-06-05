@@ -75,8 +75,8 @@ def plot_parameter_evolution(
 
 
 def plot_multi_parameter_evolution(
-    gamma_values,
-    frequency_values
+    gamma_values: Sequence[float],
+    frequency_values: Sequence[float]
 ) -> Figure:
     """
     Compare gamma and frequency evolution.
