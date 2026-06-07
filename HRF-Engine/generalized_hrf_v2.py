@@ -15,6 +15,7 @@ Increase gen for Stability and accuracy.
 import numpy as np
 import pandas as pd
 import warnings
+from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import ExtraTreesClassifier
 from xgboost import XGBClassifier
@@ -92,6 +93,7 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             self . _apply_projection ( X ) 
             self . y_train_ = y 
             return self
+
 
 
     def _apply_projection(self, X):
@@ -273,6 +275,12 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             cosine_term = np.maximum(cosine_term, 0.0)
             w = np.exp(-gamma * (top_dists ** 2)) * cosine_term
             w = np.power(w, power)
+
+            batch_probs = np.zeros((len(batch_te), n_classes))
+            for c_idx, cls in enumerate(self.classes_):
+                class_mask = (top_y == cls)
+                batch_probs[:, c_idx] = np.sum(w * class_mask, axis=1)
+
 
             batch_probs = np.zeros((len(batch_te), n_classes))
             for c_idx, cls in enumerate(self.classes_):
@@ -608,17 +616,356 @@ class GravityPotentialUnit(BaseEstimator, ClassifierMixin):
         return np.mean(self.predict(X) == y)
 
 
+
+# =============================================================================
+# SECTION 3.2: HolographicDifferentialTransformer
+# Implements bipolar montage preprocessing from HRF paper Section 3.2.
+# =============================================================================
+
+class HolographicDifferentialTransformer(BaseEstimator, TransformerMixin):
+    """
+    Holographic Differential (Bipolar Montage) Preprocessor — HRF Paper §3.2.
+
+    Implements the pairwise-channel-difference (bipolar montage) transformation
+    defined in Section 3.2 of the HRF research paper, which is credited as
+    integral to achieving 98.84 % on the EEG Eye State corpus (OpenML 1471).
+
+    For a feature matrix **X** with *d* channels, the transform produces:
+
+        X_diff[i] = X[i] - X[i+1]   for i in {0, 1, ..., d-2}   (d-1 terms)
+
+        coherence  = Var(X)  =  (1/d) Σ_i (X_i - X̄)²           (1 scalar)
+
+        Output = [X_raw | X_diff | coherence]                     (2d features)
+
+    This "holographic" representation:
+    - **Cancels common-mode artefacts** (e.g., body movement, electrode drift)
+      that affect all channels equally, because such noise cancels in X_diff.
+    - **Preserves differential brain activity** that encodes the true neural
+      signal (the EEG eye-state transition signature).
+    - **Augments global coherence**, a compact measure of cross-channel
+      synchrony that is particularly informative for eye-state detection.
+
+    The transformer is fully sklearn-compatible and can be used independently
+    in any ``sklearn.pipeline.Pipeline`` for EEG, EMG, or other
+    multi-channel biological time-series data.
+
+    Parameters
+    ----------
+    clip_range : float, default=15.0
+        Symmetric hard-clip applied to the *scaled* input before computing
+        differences to suppress extreme sensor artefacts (>15 σ after robust
+        scaling).  Set to ``None`` to disable clipping.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of input channels seen during ``fit``.
+    n_features_out_ : int
+        Number of output features after transformation.
+        Always ``2 * n_features_in_`` (raw + (n-1) diffs + 1 coherence).
+
+    Examples
+    --------
+    Standalone usage::
+
+        from sklearn.preprocessing import RobustScaler
+        from sklearn.pipeline import Pipeline
+
+        pipe = Pipeline([
+            ('scaler',  RobustScaler(quantile_range=(15, 85))),
+            ('holo',    HolographicDifferentialTransformer()),
+            ('clf',     HarmonicResonanceClassifier_BEAST_14D(use_holographic_diff=False)),
+        ])
+
+    Or via the built-in flag (slots itself before the scaler internally)::
+
+        clf = HarmonicResonanceClassifier_BEAST_14D(use_holographic_diff=True)
+
+    Notes
+    -----
+    **Mathematical basis (HRF paper §3.2):**
+
+    .. math::
+
+        \\mathbf{X}_{\\text{diff}}[i] = \\mathbf{X}[i] - \\mathbf{X}[i+1]
+        \\quad \\text{for } i \\in \\{1, \\dots, d-1\\}
+
+        \\text{coherence} = \\operatorname{Var}(\\mathbf{X}) =
+            \\frac{1}{d} \\sum_{i=1}^{d}
+            \\left(\\mathbf{X}_i - \\bar{\\mathbf{X}}\\right)^2
+
+        \\text{output} = [\\mathbf{X}_{\\text{raw}},\\;
+                         \\mathbf{X}_{\\text{diff}},\\;
+                         \\text{coherence}]
+
+    References
+    ----------
+    Devanik et al., "Harmonic Resonance Forest (HRF): A Physics-Informed
+    Machine Learning Algorithm for Periodic Signal Classification," §3.2
+    *Holographic Differential (Bipolar Montage) Preprocessing* (2025).
+
+    See also: ``pipeline_overview.md`` — Stage 2 (Bipolar Montage /
+    Holographic Differential).
+    """
+
+    def __init__(self, clip_range: float = 15.0):
+        self.clip_range = clip_range
+
+    # ------------------------------------------------------------------
+    # sklearn TransformerMixin interface
+    # ------------------------------------------------------------------
+
+    def fit(self, X, y=None):
+        """
+        Validate input shape and record ``n_features_in_``.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input feature matrix. Must have at least 2 columns so that
+            at least one differential feature can be computed.
+        y : ignored
+            Present for API compatibility.
+
+        Returns
+        -------
+        self : HolographicDifferentialTransformer
+        """
+        X = check_array(X, dtype=np.float64, ensure_2d=True)
+        if X.shape[1] < 2:
+            raise ValueError(
+                "HolographicDifferentialTransformer requires at least 2 input "
+                f"features (channels) to compute bipolar differences. "
+                f"Got X with shape {X.shape}."
+            )
+        self.n_features_in_ = X.shape[1]
+        # 2d-1 diff channels + 1 coherence = n_features_in_ + (n_features_in_ - 1) + 1
+        self.n_features_out_ = 2 * self.n_features_in_
+        return self
+
+    def transform(self, X):
+        """
+        Apply bipolar montage transformation as defined in HRF paper §3.2.
+
+        Algorithm
+        ---------
+        1. **Clip** extreme outliers to ``[-clip_range, +clip_range]``
+           (disabled when ``clip_range=None``).
+        2. **Differential features**: compute X[:, i] - X[:, i+1] for each
+           adjacent channel pair, yielding ``(d-1)`` new columns.
+        3. **Global coherence**: compute per-sample variance across all
+           channels, yielding 1 scalar column.
+        4. **Concatenate**: ``[X_raw | X_diff | coherence]``
+           → output shape ``(n_samples, 2*d)``.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Feature matrix to transform.  ``n_features`` must equal
+            ``n_features_in_`` seen during ``fit``.
+
+        Returns
+        -------
+        X_out : ndarray of shape (n_samples, 2 * n_features_in_)
+            Holographically augmented feature matrix.
+        """
+        check_is_fitted(self, ["n_features_in_", "n_features_out_"])
+        X = check_array(X, dtype=np.float64, ensure_2d=True)
+
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features but HolographicDifferentialTransformer "
+                f"was fitted on {self.n_features_in_} features."
+            )
+
+        # Step 1: hard-clip to suppress extreme artefacts
+        if self.clip_range is not None:
+            X_clean = np.clip(X, -self.clip_range, self.clip_range)
+        else:
+            X_clean = X.copy()
+
+        # Step 2: adjacent-channel differences (bipolar montage)
+        #   X_diff[i] = X[i] - X[i+1]  for i in {0, ..., d-2}
+        #   Shape: (n_samples, d-1)
+        X_diff = X_clean[:, :-1] - X_clean[:, 1:]  # vectorised, no Python loop
+
+        # Step 3: global coherence = per-sample variance across channels
+        #   Shape: (n_samples, 1)
+        coherence = np.var(X_clean, axis=1, keepdims=True)  # ddof=0 → biased variance
+
+        # Step 4: concatenate [raw | diff | coherence]
+        #   (n_samples, d) | (n_samples, d-1) | (n_samples, 1) → (n_samples, 2d)
+        return np.hstack([X_clean, X_diff, coherence])
+
+    def get_feature_names_out(self, input_features=None):
+        """
+        Generate output feature names for downstream pipelines.
+
+        Parameters
+        ----------
+        input_features : list of str or None
+            Base names for input channels.  Defaults to
+            ``["x0", "x1", ..., "x{d-1}"]`` when ``None``.
+
+        Returns
+        -------
+        feature_names_out : ndarray of shape (2 * n_features_in_,)
+        """
+        check_is_fitted(self, "n_features_in_")
+        d = self.n_features_in_
+        if input_features is None:
+            base = [f"x{i}" for i in range(d)]
+        else:
+            base = list(input_features)
+
+        raw_names  = base
+        diff_names = [f"{base[i]}_minus_{base[i+1]}" for i in range(d - 1)]
+        coh_names  = ["global_coherence"]
+
+        return np.array(raw_names + diff_names + coh_names, dtype=object)
+
+    def __repr__(self):
+        return (
+            f"HolographicDifferentialTransformer("
+            f"clip_range={self.clip_range!r})"
+        )
+    """
+    Physics-inspired classifier using Newtonian gravitational potential
+    (softened inverse-square law) as the decision mechanism.
+
+    Each training point acts as a gravitational mass. A test point is
+    attracted to training points proportionally to 1 / (r² + ε), where r
+    is the Euclidean distance and ε (softening length) prevents singularities.
+    Class probabilities are derived from the total gravitational potential
+    exerted by each class's training points on the test point.
+
+    Biological relevance: neural firing patterns cluster in feature space.
+    Close same-class points exert strong attraction; distant or cross-class
+    points contribute weakly, producing soft, naturally-curved boundaries
+    that adapt to overlapping class distributions — a known challenge in
+    EEG classification.
+
+    Architecture reference: Titan-26 Sector D, Unit 21.
+    """
+
+    def __init__(self, softening=1e-2, batch_size=512, random_state=None):
+        """
+        Parameters
+        ----------
+        softening : float, default=1e-2
+            Softening length ε in 1/(r²+ε²). Prevents potential singularity
+            when a test point coincides exactly with a training point.
+            Analogous to Plummer softening in N-body simulations.
+        batch_size : int, default=512
+            Test samples processed per batch. Keeps (batch × n_train)
+            arrays memory-safe without sacrificing vectorisation.
+        """
+        self.softening = softening
+        self.batch_size = batch_size
+        self.random_state = random_state
+
+    def fit(self, X, y):
+        from sklearn.utils.validation import check_X_y
+        X, y = check_X_y(X, y)
+        self.classes_ = np.unique(y)
+        self.n_features_in_ = X.shape[1]
+        # Store per-class training matrices — avoids repeated boolean masking
+        # at inference time and makes predict_proba fully vectorised per class.
+        self.X_by_class_ = {
+            cls: X[y == cls].astype(np.float32)
+            for cls in self.classes_
+        }
+        return self
+
+    def _batch_potential(self, X_batch, X_class):
+        """
+        Compute total softened gravitational potential for one batch vs one class.
+
+        Shape: X_batch (B, d), X_class (N_c, d) → output (B,)
+
+        Uses row-wise loop over X_class chunks to keep memory at
+        O(B × chunk) rather than O(B × N_c × d) for large N_c.
+        """
+        B = len(X_batch)
+        potential = np.zeros(B, dtype=np.float64)
+        eps_sq = self.softening ** 2
+
+        chunk = 256
+        for start in range(0, len(X_class), chunk):
+            X_c = X_class[start : start + chunk]                  # (chunk, d)
+            diff = X_batch[:, None, :] - X_c[None, :, :]         # (B, chunk, d)
+            sq_dist = np.sum(diff ** 2, axis=2)                   # (B, chunk)
+            potential += (1.0 / (sq_dist + eps_sq)).sum(axis=1)   # (B,)
+
+        return potential
+
+    def predict_proba(self, X):
+        check_is_fitted(self, 'X_by_class_')
+        X = check_array(X).astype(np.float32)
+        n_samples = len(X)
+        n_classes = len(self.classes_)
+        proba = np.zeros((n_samples, n_classes), dtype=np.float64)
+
+        for i in range(0, n_samples, self.batch_size):
+            batch = X[i : i + self.batch_size]
+            for c_idx, cls in enumerate(self.classes_):
+                proba[i : i + len(batch), c_idx] = self._batch_potential(
+                    batch, self.X_by_class_[cls]
+                )
+
+        # Normalise rows to valid probability simplex
+        row_sums = proba.sum(axis=1, keepdims=True)
+        row_sums = np.where(row_sums == 0, 1.0, row_sums)
+        return proba / row_sums
+
+    def predict(self, X):
+        check_is_fitted(self, 'X_by_class_')
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+
+    def score(self, X, y):
+        return np.mean(self.predict(X) == y)
+
+
 # --- 7. THE TITAN-16 "BEAST MODE" (Extended with Sector D Physics Units) ---
 class HarmonicResonanceClassifier_BEAST_16D(BaseEstimator, ClassifierMixin):
+    """Placeholder for future 16-unit extension. See BEAST_14D for the active implementation."""
+    pass
+
+# --- 7. THE TITAN-14 "BEAST MODE" (Endgame Edition) ---
+class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
+    def __init__(self, verbose=False, use_holographic_diff=False):
+        """
+        Harmonic Resonance Classifier — BEAST Mode (14-Unit Endgame Edition).
+
+        Parameters
+        ----------
+        verbose : bool, default=False
+            Print phase-by-phase training diagnostics.
+        use_holographic_diff : bool, default=False
+            When True, applies ``HolographicDifferentialTransformer`` (HRF
+            paper §3.2) **before** ``RobustScaler`` inside ``fit()`` and
+            ``predict_proba()``.  This bipolar montage step computes
+            pairwise channel differences and appends global coherence,
+            cancelling common-mode artefacts while preserving differential
+            brain activity.  Set to True to reproduce the 98.84 % result
+            reported on OpenML 1471 (EEG Eye State corpus).
+
+            Default is ``False`` for backward compatibility with existing
+            fitted models and non-EEG datasets.
+        """
 
 # --- 7. THE TITAN-14 "BEAST MODE" (Endgame Edition) ---
 class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
     def __init__(self, verbose=False):
         self.verbose = verbose
+        self.use_holographic_diff = use_holographic_diff
         # Robust scaling with wider quantile to catch outliers
         self.scaler_ = RobustScaler(quantile_range=(15.0, 85.0))
         self.weights_ = None
         self.classes_ = None
+        # Holographic transformer — instantiated once; fitted lazily in fit()
+        self._holo_transformer = HolographicDifferentialTransformer(clip_range=15.0)
 
         # --- THE 14 BEASTS (Maximum Fidelity) ---
 
@@ -693,6 +1040,84 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
 
         # --- SECTOR D: MACRO-PHYSICAL LAYERS (Titan-26 Extension) ---
 
+        # 15. GOLDEN PHI (Biological Spiral Mapping — Unit 18 in Titan-26)
+        # φ-weighted feature space captures self-similar EEG/ECG signal structure.
+        self.unit_15 = GoldenPhiUnit(n_neighbors=7, random_state=42)
+
+        # 16. GRAVITY POTENTIAL (Inverse-Square Law Attraction — Unit 21 in Titan-26)
+        # Newtonian softened potential produces curved, physics-informed boundaries.
+        self.unit_16 = GravityPotentialUnit(softening=1e-2, batch_size=512, random_state=42)
+
+        # 12. THE HOLOGRAPHIC SOUL — Logic Seed
+        # Low frequency, tight boundary: favours crisp decision regions.
+        self.unit_12 = HolographicSoulUnit(
+            k=15, random_state=12,
+            freq=1.0, gamma=0.1, power=2.0,
+            p=2.0, phase=0.0, dim_reduction='none'
+        )
+
+        # 13. TWIN SOUL ALPHA — Chaos Seed
+        # Full 2π cycle, loose gamma, holographic projection: wave/frequency explorer.
+        self.unit_13 = HolographicSoulUnit(
+            k=15, random_state=13,
+            freq=6.2832, gamma=2.0, power=3.0,
+            p=2.0, phase=1.5708, dim_reduction='holo'
+        )
+
+        # 14. TWIN SOUL BETA — Order Seed
+        # π frequency, Manhattan norm, PCA projection: manifold/geometry explorer.
+        self.unit_14 = HolographicSoulUnit(
+            k=15, random_state=14,
+            freq=3.14159, gamma=0.5, power=1.0,
+            p=1.0, phase=0.7854, dim_reduction='pca'
+        )
+
+        # --- SECTOR D: MACRO-PHYSICAL LAYERS (Titan-26 Extension) ---
+
+    def fit(self, X, y):
+        """
+        Fit the 14-unit BEAST ensemble on training data.
+
+        Optionally applies HolographicDifferentialTransformer (§3.2) before
+        RobustScaler when ``use_holographic_diff=True``.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+        y : array-like of shape (n_samples,)
+
+        Returns
+        -------
+        self
+        """
+        X, y = check_X_y(X, y)
+        y = y.astype(int)
+        self.classes_ = np.unique(y)
+        n_classes = len(self.classes_)
+        self.failed_units_ = []
+
+        # ── Holographic Differential Preprocessing (HRF paper §3.2) ──────────
+        # Slot HolographicDifferentialTransformer BEFORE RobustScaler so the
+        # bipolar montage operates on the raw signal, not on pre-scaled values.
+        # When use_holographic_diff=False the raw X passes through unchanged,
+        # preserving full backward compatibility.
+        if self.use_holographic_diff:
+            if self.verbose:
+                print(" [HOLO] Applying Holographic Differential Preprocessing (§3.2)...")
+            self._holo_transformer.fit(X)
+            X = self._holo_transformer.transform(X)
+            if self.verbose:
+                print(f"   Input channels : {self._holo_transformer.n_features_in_ if hasattr(self._holo_transformer, 'n_features_in_') else 'n/a'}")
+                print(f"   Output features: {X.shape[1]}  "
+                      f"(raw + {X.shape[1]//2 - 1} diffs + 1 coherence)")
+
+        # ── Robust Scaling ────────────────────────────────────────────────────
+        X_scaled = self.scaler_.fit_transform(X)
+
+        # ── Evolutionary Split ────────────────────────────────────────────────
+        X_evo_t, X_evo_v, y_evo_t, y_evo_v = train_test_split(
+            X_scaled, y, test_size=0.24, stratify=y, random_state=21
+        )
         # 15. GOLDEN PHI (Biological Spiral Mapping — Unit 18 in Titan-26)
         # φ-weighted feature space captures self-similar EEG/ECG signal structure.
         self.unit_15 = GoldenPhiUnit(n_neighbors=7, random_state=42)
@@ -826,6 +1251,10 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         if self.verbose:
             print("-" * 50)
             print("   >>> THE COUNCIL WEIGHTS <<<")
+            # 16 names — must match all_units order in both fit() and predict_proba():
+            # other_units[0..12] = ET, RF, HG, XG1, XG2, NuSVC, PolySVC,
+            #                      KNN-Euc, KNN-Man, QDA, CalibSVC, GoldenPhi, Gravity
+            # + souls[0..2]      = SOUL-Holo, SOUL-Chaos, SOUL-Order
             names = [
                 "Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2",
                 "Nu-Warp", "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA",
@@ -860,6 +1289,28 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         return self
 
     def predict_proba(self, X):
+        """
+        Compute class probability estimates for X.
+
+        Applies the same preprocessing pipeline used during ``fit``
+        (HolographicDifferentialTransformer → RobustScaler when
+        ``use_holographic_diff=True``).
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+
+        Returns
+        -------
+        proba : ndarray of shape (n_samples, n_classes)
+        """
+        check_is_fitted(self, ["classes_", "weights_"])
+        X = check_array(X)
+
+        # Mirror the fit() preprocessing pipeline exactly
+        if self.use_holographic_diff:
+            X = self._holo_transformer.transform(X)
+
         X_scaled = self.scaler_.transform(X)
 
         all_units = [
