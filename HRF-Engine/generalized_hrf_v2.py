@@ -12,10 +12,33 @@ Original file is located at
 Increase gen for Stability and accuracy.
 """
 
+import sys
+import logging
 import numpy as np
 import pandas as pd
 import warnings
 import random
+
+# --- Global Error Boundary Setup ---
+logging.basicConfig(
+    filename='hrf_error.log',
+    level=logging.ERROR,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+def global_exception_handler(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    print("\n[CRITICAL ERROR] The Harmonic Resonance Forest encountered an unexpected fatal error.")
+    print(f"Details: {exc_value}")
+    print("Please check 'hrf_error.log' for the full stack trace and securely report this issue.")
+    sys.exit(1)
+
+sys.excepthook = global_exception_handler
+# -----------------------------------
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import ExtraTreesClassifier
 from xgboost import XGBClassifier
