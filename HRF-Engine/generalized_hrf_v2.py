@@ -86,12 +86,6 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         self._apply_projection(X)
         self.y_train_ = y
         return self
-    
-    def fit ( self , X , y ): 
-            self . classes_ = np . unique ( y ) 
-            self . _apply_projection ( X ) 
-            self . y_train_ = y 
-            return self
 
 
     def _apply_projection(self, X):
@@ -258,9 +252,6 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
 
             diff  = np.abs(batch_te[:, None, :] - X_train[None, :, :])
             dists = np.sum(diff ** p_norm, axis=2) ** (1.0 / p_norm)
-            dists = np.empty((len(batch_te), len(X_train)), dtype=np.float32)
-            for j, row in enumerate(batch_te):
-                dists[j] = np.sum(np.abs(X_train - row) ** p_norm, axis=1) ** (1.0 / p_norm)
 
             # np.argpartition is O(N) vs np.argsort's O(NlogN) —
             # we only need the k smallest distances, not full sorted order.
@@ -302,12 +293,12 @@ class QuantumFieldUnit(BaseEstimator, ClassifierMixin):
         self.classes_ = None
         self.dna_ = {'gamma': 1.0, 'n_components': 100}
 
-    def fit (self, X, y ) :
-            self.classes_ = np.unique(y)
-            self.rbf_feature_.set_params(gamma=self.dna_['gamma'], n_components=self.dna_['n_components'])
-            X_quantum = self.rbf_feature_.fit_transform(X)
-            self.classifier_.fit(X_quantum, y)
-            return self
+    def fit(self, X, y):
+        self.classes_ = np.unique(y)
+        self.rbf_feature_.set_params(gamma=self.dna_['gamma'], n_components=self.dna_['n_components'])
+        X_quantum = self.rbf_feature_.fit_transform(X)
+        self.classifier_.fit(X_quantum, y)
+        return self
 
     def predict_proba(self, X):
         X_quantum = self.rbf_feature_.transform(X)
@@ -975,7 +966,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             self._holo_transformer.fit(X)
             X = self._holo_transformer.transform(X)
             if self.verbose:
-                print(f"   Input channels : {self.n_features_in_ if hasattr(self, 'n_features_in_') else 'n/a'}")
+                print(f"   Input channels : {self._holo_transformer.n_features_in_ if hasattr(self._holo_transformer, 'n_features_in_') else 'n/a'}")
                 print(f"   Output features: {X.shape[1]}  "
                       f"(raw + {X.shape[1]//2 - 1} diffs + 1 coherence)")
 
@@ -1031,7 +1022,6 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             self.unit_05, self.unit_06, self.unit_07, self.unit_08,
             self.unit_09, self.unit_10, self.unit_11,
             self.unit_15, self.unit_16,   # Sector D physics units
-            self.unit_09, self.unit_10, self.unit_11
         ]
 
         for i, unit in enumerate(other_units):
@@ -1094,15 +1084,16 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         if self.verbose:
             print("-" * 50)
             print("   >>> THE COUNCIL WEIGHTS <<<")
+            # 16 names — must match all_units order in both fit() and predict_proba():
+            # other_units[0..12] = ET, RF, HG, XG1, XG2, NuSVC, PolySVC,
+            #                      KNN-Euc, KNN-Man, QDA, CalibSVC, GoldenPhi, Gravity
+            # + souls[0..2]      = SOUL-Holo, SOUL-Chaos, SOUL-Order
             names = [
                 "Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2",
                 "Nu-Warp", "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA",
                 "Resonance", "GoldenPhi", "Gravity",
                 "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3",
             ]
-            names = ["Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2", "Nu-Warp",
-                     "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA", "Resonance",
-                     "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3"]
 
             # Sort by influence
             indices = np.argsort(self.weights_)[::-1]
