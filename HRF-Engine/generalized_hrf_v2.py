@@ -109,13 +109,6 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         self._apply_projection(X)
         self.y_train_ = y
         return self
-    
-    def fit ( self , X , y ): 
-            self . classes_ = np . unique ( y ) 
-            self . _apply_projection ( X ) 
-            self . y_train_ = y 
-            return self
-
 
 
     def _apply_projection(self, X):
@@ -213,53 +206,89 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         else: return self._predict_proba_cpu(X_curr)
 
     def _predict_proba_gpu(self, X):
+        """
+        CuPy (GPU) implementation of the HRF wave-potential kernel.
+
+        Implements HRF paper §3.1.1 with class-specific frequencies:
+
+            Ψ(x, p_i) = exp(-γ‖x−p_i‖²) · (1 + cos(ω_c·‖x−p_i‖ + φ))
+            ω_c = f_base · (c + 1)
+
+        The Gaussian decay is class-independent and computed once per batch.
+        The cosine term is class-specific and computed inside the per-class loop.
+        """
         X_tr_g = cp.asarray(self.X_train_, dtype=cp.float32)
         X_te_g = cp.asarray(X, dtype=cp.float32)
         y_tr_g = cp.asarray(self.y_train_)
 
-        n_test = len(X_te_g)
+        n_test    = len(X_te_g)
         n_classes = len(self.classes_)
-        probas = []
+        probas    = []
         batch_size = 256
 
         p_norm = self.dna_.get('p', 2.0)
-        gamma = self.dna_['gamma']
-        freq = self.dna_['freq']
-        power = self.dna_['power']
-        phase = self.dna_.get('phase', 0.0)
+        gamma  = self.dna_['gamma']
+        freq   = self.dna_['freq']          # f_base — paper §3.1.1
+        power  = self.dna_['power']
+        phase  = self.dna_.get('phase', 0.0)
 
         for i in range(0, n_test, batch_size):
-            end = min(i + batch_size, n_test)
-            batch_te = X_te_g[i:end]
-            diff = cp.abs(batch_te[:, None, :] - X_tr_g[None, :, :])
-            dists = cp.sum(cp.power(diff, p_norm), axis=2)
-            dists = cp.power(dists, 1.0/p_norm)
+            end       = min(i + batch_size, n_test)
+            batch_te  = X_te_g[i:end]
+
+            diff      = cp.abs(batch_te[:, None, :] - X_tr_g[None, :, :])
+            dists     = cp.power(cp.sum(cp.power(diff, p_norm), axis=2), 1.0 / p_norm)
             top_k_idx = cp.argsort(dists, axis=1)[:, :self.k]
-            row_idx = cp.arange(len(batch_te))[:, None]
-            top_dists = dists[row_idx, top_k_idx]
-            top_y = y_tr_g[top_k_idx]
+            row_idx   = cp.arange(len(batch_te))[:, None]
+            top_dists = dists[row_idx, top_k_idx]              # (B, k)
+            top_y     = y_tr_g[top_k_idx]                      # (B, k)
 
-            cosine_term = 1.0 + cp.cos(freq * top_dists + phase)
-            cosine_term = cp.maximum(cosine_term, 0.0)
-            w = cp.exp(-gamma * (top_dists**2)) * cosine_term
-            w = cp.power(w, power)
+            # ── Gaussian decay — class-independent, computed once ─────────
+            # exp(-γr²)  |  shape (B, k)
+            gauss = cp.exp(-gamma * (top_dists ** 2))
 
+            # ── Class-specific resonance energies (paper §3.1.1) ─────────
+            # Ψ_c(x,p) = gauss · (1 + cos(ω_c·r + φ))^power
+            # ω_c = f_base · (c+1)  →  each class resonates at a unique freq
             batch_probs = cp.zeros((len(batch_te), n_classes))
             for c_idx, cls in enumerate(self.classes_):
+                freq_c     = freq * (c_idx + 1)                # ω_c = f_base·(c+1)
+                cosine_c   = 1.0 + cp.cos(freq_c * top_dists + phase)
+                cosine_c   = cp.maximum(cosine_c, 0.0)         # rectify: energy ≥ 0
+                w_c        = cp.power(gauss * cosine_c, power)
                 class_mask = (top_y == cls)
-                batch_probs[:, c_idx] = cp.sum(w * class_mask, axis=1)
+                batch_probs[:, c_idx] = cp.sum(w_c * class_mask, axis=1)
 
             total_energy = cp.sum(batch_probs, axis=1, keepdims=True)
             total_energy[total_energy == 0] = 1.0
             batch_probs /= total_energy
             probas.append(batch_probs)
-            del batch_te, dists, diff, top_k_idx, top_dists, w, cosine_term
+
+            del batch_te, dists, diff, top_k_idx, top_dists, gauss
             cp.get_default_memory_pool().free_all_blocks()
 
         return cp.asnumpy(cp.concatenate(probas))
     def _predict_proba_cpu(self, X):
-        """NumPy fallback for predict_proba when CuPy/GPU is unavailable.
-        Mirrors _predict_proba_gpu exactly, using np instead of cp.
+        """
+        NumPy (CPU) implementation of the HRF wave-potential kernel.
+
+        Mirrors _predict_proba_gpu exactly using NumPy instead of CuPy.
+
+        Implements HRF paper §3.1.1 with class-specific frequencies:
+
+            Ψ(x, p_i) = exp(-γ‖x−p_i‖²) · (1 + cos(ω_c·‖x−p_i‖ + φ))
+            ω_c = f_base · (c + 1)
+
+        The Gaussian decay is class-independent and computed once per batch.
+        The cosine term is class-specific and computed inside the per-class loop,
+        ensuring each class resonates at its own distinct frequency.
+
+        Performance notes
+        -----------------
+        - Vectorised Minkowski distance avoids Python-level row loops.
+        - np.argpartition (O(N)) replaces np.argsort (O(N log N)) — only the
+          k smallest distances matter, not full sorted order.
+        - Gaussian term computed once outside the per-class loop.
         """
         X_train = self.X_train_.astype(np.float32)
         X_test  = np.asarray(X, dtype=np.float32)
@@ -272,7 +301,7 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
 
         p_norm = self.dna_.get('p', 2.0)
         gamma  = self.dna_['gamma']
-        freq   = self.dna_['freq']
+        freq   = self.dna_['freq']          # f_base — paper §3.1.1
         power  = self.dna_['power']
         phase  = self.dna_.get('phase', 0.0)
 
@@ -280,39 +309,36 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             end      = min(i + batch_size, n_test)
             batch_te = X_test[i:end]
 
+            # Vectorised Minkowski distance — shape (B, N_train)
             diff  = np.abs(batch_te[:, None, :] - X_train[None, :, :])
             dists = np.sum(diff ** p_norm, axis=2) ** (1.0 / p_norm)
-            dists = np.empty((len(batch_te), len(X_train)), dtype=np.float32)
-            for j, row in enumerate(batch_te):
-                dists[j] = np.sum(np.abs(X_train - row) ** p_norm, axis=1) ** (1.0 / p_norm)
 
-            # np.argpartition is O(N) vs np.argsort's O(NlogN) —
-            # we only need the k smallest distances, not full sorted order.
+            # k-NN via argpartition: O(N) vs O(N log N) for argsort
             top_k_idx = np.argpartition(dists, self.k, axis=1)[:, :self.k]
             row_idx   = np.arange(len(batch_te))[:, None]
-            top_dists = dists[row_idx, top_k_idx]
-            top_y     = y_train[top_k_idx]
+            top_dists = dists[row_idx, top_k_idx]              # (B, k)
+            top_y     = y_train[top_k_idx]                     # (B, k)
 
-            cosine_term = 1.0 + np.cos(freq * top_dists + phase)
-            cosine_term = np.maximum(cosine_term, 0.0)
-            w = np.exp(-gamma * (top_dists ** 2)) * cosine_term
-            w = np.power(w, power)
+            # ── Gaussian decay — class-independent, computed once ─────────
+            # exp(-γr²)  |  shape (B, k)
+            gauss = np.exp(-gamma * (top_dists ** 2))
 
-            batch_probs = np.zeros((len(batch_te), n_classes))
+            # ── Class-specific resonance energies (paper §3.1.1) ─────────
+            # Ψ_c(x,p) = gauss · (1 + cos(ω_c·r + φ))^power
+            # ω_c = f_base · (c+1)  →  each class resonates at a unique freq
+            batch_probs = np.zeros((len(batch_te), n_classes), dtype=np.float64)
             for c_idx, cls in enumerate(self.classes_):
-                class_mask = (top_y == cls)
-                batch_probs[:, c_idx] = np.sum(w * class_mask, axis=1)
+                freq_c     = freq * (c_idx + 1)                # ω_c = f_base·(c+1)
+                cosine_c   = 1.0 + np.cos(freq_c * top_dists + phase)
+                cosine_c   = np.maximum(cosine_c, 0.0)         # rectify: energy ≥ 0
+                w_c        = np.power(gauss * cosine_c, power)
+                class_mask = (top_y == cls)                    # (B, k) bool
+                batch_probs[:, c_idx] = np.sum(w_c * class_mask, axis=1)
 
-
-            batch_probs = np.zeros((len(batch_te), n_classes))
-            for c_idx, cls in enumerate(self.classes_):
-                class_mask = (top_y == cls)
-                batch_probs[:, c_idx] = np.sum(w * class_mask, axis=1)
-
+            # Normalise rows to valid probability simplex
             total_energy = np.sum(batch_probs, axis=1, keepdims=True)
-            total_energy[total_energy == 0] = 1.0  # avoid division by zero
+            total_energy[total_energy == 0] = 1.0
             batch_probs /= total_energy
-
             probas.append(batch_probs)
 
         return np.concatenate(probas)
@@ -1149,23 +1175,6 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
         self.unit_16 = GravityPotentialUnit(softening=1e-2, batch_size=512, random_state=42)
 
 
-    def fit(self, X, y):
-            self.failed_units_ = []
-            # Create a list of all your sub-units to loop through them easily
-            units_list = [
-                self.unit_01, self.unit_02, self.unit_03, self.unit_04, self.unit_05,
-                self.unit_06, self.unit_07, self.unit_08, self.unit_09, self.unit_10,
-                self.unit_11, self.unit_12, self.unit_13, self.unit_14
-            ]
-            
-            for idx, unit in enumerate(units_list):
-                        try:
-                            unit.fit(X, y)
-                        except Exception as e:
-                            print(f"Warning: Unit {idx + 1} failed during training: {e}")
-                            self.failed_units_.append(idx + 1)
-                            
-                  
         if self.verbose:
             print("\n" + "!"*60)
             print(" >>> HARMONIC RESONANCE FOREST: BEAST MODE (14D) INITIATED <<<")
