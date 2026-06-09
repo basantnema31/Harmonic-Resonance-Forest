@@ -314,7 +314,12 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
             dists = np.sum(diff ** p_norm, axis=2) ** (1.0 / p_norm)
 
             # k-NN via argpartition: O(N) vs O(N log N) for argsort
-            top_k_idx = np.argpartition(dists, self.k, axis=1)[:, :self.k]
+            # Guard: cap k to number of training samples to prevent out-of-bounds
+            k_safe = min(self.k, dists.shape[1])
+            if k_safe < dists.shape[1]:
+                top_k_idx = np.argpartition(dists, k_safe, axis=1)[:, :k_safe]
+            else:
+                top_k_idx = np.argsort(dists, axis=1)
             row_idx   = np.arange(len(batch_te))[:, None]
             top_dists = dists[row_idx, top_k_idx]              # (B, k)
             top_y     = y_train[top_k_idx]                     # (B, k)
