@@ -394,7 +394,7 @@ class TestHolographicSoulUnitIntegration:
     def soul_unit(self):
         try:
             import sys, os
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
             from generalized_hrf_v2 import HolographicSoulUnit  # noqa
             return HolographicSoulUnit(k=5, freq=2.0, gamma=0.5, power=2.0)
         except (ImportError, ModuleNotFoundError):
