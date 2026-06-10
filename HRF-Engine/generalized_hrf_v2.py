@@ -403,11 +403,11 @@ class OmniKernelUnit(BaseEstimator, ClassifierMixin):
         return self.model_.score(X, y)
 
 
-#from sklearn.neighbors import KNeighborsClassifier
-#from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearDiscriminantAnalysis
-#from sklearn.kernel_ridge import KernelRidge
-#from sklearn.calibration import CalibratedClassifierCV
-#from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearDiscriminantAnalysis
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier
 #from sklearn.svm import LinearSVC
 
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -426,11 +426,11 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import RidgeClassifier
 from sklearn.mixture import GaussianMixture
 from sklearn.svm import SVC, NuSVC, LinearSVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.kernel_approximation import RBFSampler
-from sklearn.metrics import log_loss, accuracy_score
+#from sklearn.neighbors import KNeighborsClassifier
+#from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+#from sklearn.calibration import CalibratedClassifierCV
+#from sklearn.kernel_approximation import RBFSampler
+#from sklearn.metrics import log_loss, accuracy_score
 #from sklearn.utils.validation import check_X_y
 #from sklearn.model_selection import train_test_split
 #from scipy.optimize import minimize
