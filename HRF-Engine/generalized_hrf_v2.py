@@ -553,7 +553,8 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
                     d = unit.decision_function(X_evo_v)
                     p = np.exp(d) / np.sum(np.exp(d), axis=1, keepdims=True)
                 preds_proba.append(p)
-            except:
+            except Exception as e:
+                warnings.warn(f"Unit failed during fit consensus gathering with error: {e}. Substituting uniform probabilities.")
                 preds_proba.append(np.ones((len(X_evo_v), n_classes)) / n_classes)
 
         # Optimization Function (Maximize Accuracy/Minimize Loss)
@@ -630,8 +631,9 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
                 else:
                     d = unit.decision_function(X_scaled)
                     p = np.exp(d) / np.sum(np.exp(d), axis=1, keepdims=True)
-            except:
-                 p = np.ones((len(X), len(self.classes_))) / len(self.classes_)
+            except Exception as e:
+                warnings.warn(f"Unit {i} failed during predict_proba with error: {e}. Substituting uniform probabilities.")
+                p = np.ones((len(X), len(self.classes_))) / len(self.classes_)
 
             if final_pred is None:
                 final_pred = self.weights_[i] * p
