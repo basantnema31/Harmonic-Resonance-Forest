@@ -481,7 +481,7 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearD
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import LinearSVC
+#from sklearn.svm import LinearSVC
 
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.svm import NuSVC
@@ -489,23 +489,24 @@ from sklearn.svm import NuSVC
 import numpy as np
 import pandas as pd
 import warnings
+import random
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
-from xgboost import XGBClassifier
+#from xgboost import XGBClassifier
 from sklearn.preprocessing import RobustScaler
 from sklearn.random_projection import GaussianRandomProjection
 from sklearn.decomposition import PCA
 from sklearn.linear_model import RidgeClassifier
 from sklearn.mixture import GaussianMixture
 from sklearn.svm import SVC, NuSVC, LinearSVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.kernel_approximation import RBFSampler
-from sklearn.metrics import log_loss, accuracy_score
-from sklearn.utils.validation import check_X_y
-from sklearn.model_selection import train_test_split
-from scipy.optimize import minimize
+#from sklearn.neighbors import KNeighborsClassifier
+#from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+#from sklearn.calibration import CalibratedClassifierCV
+#from sklearn.kernel_approximation import RBFSampler
+#from sklearn.metrics import log_loss, accuracy_score
+#from sklearn.utils.validation import check_X_y
+#from sklearn.model_selection import train_test_split
+#from scipy.optimize import minimize
 
 # --- 7a. GOLDEN PHI UNIT (Sector D — Unit 15: Biological Spiral Mapping) ---
 class GoldenPhiUnit(BaseEstimator, ClassifierMixin):
