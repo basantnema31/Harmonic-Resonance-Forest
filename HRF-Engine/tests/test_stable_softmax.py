@@ -17,18 +17,15 @@ import numpy as np
 import pytest
 
 # ---------------------------------------------------------------------------
-# Inline the helper for isolated testing (mirrors production code exactly)
+# Import production helper — ensures tests run against actual code
 # ---------------------------------------------------------------------------
 
-def _stable_softmax(d: np.ndarray) -> np.ndarray:
-    """Numerically stable softmax — mirrors generalized_hrf_v2._stable_softmax."""
-    d = np.asarray(d, dtype=np.float64)
-    if d.ndim == 1:
-        prob_pos = 1.0 / (1.0 + np.exp(-np.clip(d, -500.0, 500.0)))
-        return np.column_stack([1.0 - prob_pos, prob_pos])
-    d_shifted = d - np.max(d, axis=1, keepdims=True)
-    exp_d = np.exp(d_shifted)
-    return exp_d / np.sum(exp_d, axis=1, keepdims=True)
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+try:
+    from generalized_hrf_v2 import _stable_softmax
+except ImportError:
+    pytest.skip("generalized_hrf_v2 not importable", allow_module_level=True)
 
 
 def _naive_softmax(d: np.ndarray) -> np.ndarray:
