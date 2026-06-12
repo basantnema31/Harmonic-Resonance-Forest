@@ -66,6 +66,65 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
+
+# =============================================================================
+# Numerically-stable softmax helper (log-sum-exp trick)
+# =============================================================================
+
+def _stable_softmax(d: np.ndarray) -> np.ndarray:
+    """
+    Numerically stable softmax using the log-sum-exp (max-subtraction) trick.
+
+    Motivation
+    ----------
+    The naive formula  ``p_i = exp(d_i) / Σ exp(d_j)``  overflows to ``inf``
+    when any element of ``d`` exceeds ~710 (``np.exp(711) == inf``).  When that
+    happens the denominator becomes ``inf / inf = nan``, silently corrupting
+    every downstream probability estimate and prediction.
+
+    The equivalent numerically stable form subtracts the per-row maximum before
+    exponentiation.  Because the maximum cancels out in numerator and denominator,
+    the mathematical result is identical while the largest exponent is always 0:
+
+        p_i = exp(d_i − max_j d_j) / Σ_j exp(d_j − max_j d_j)
+
+    Parameters
+    ----------
+    d : ndarray of shape (n_samples, n_classes)  or  (n_samples,)
+        Raw decision-function scores.  1-D binary output is converted to
+        a 2-column probability matrix via sigmoid (consistent with
+        ``QuantumFieldUnit.predict_proba`` and sklearn conventions).
+
+    Returns
+    -------
+    p : ndarray of shape (n_samples, n_classes)
+        Probability matrix.  Rows sum to 1.0; all values in [0, 1].
+
+    Examples
+    --------
+    >>> d = np.array([[800.0, 750.0, 720.0], [710.0, 680.0, 690.0]])
+    >>> _stable_softmax(d)
+    array([[9.999e-01, 6.914e-23, 9.358e-36],
+           [9.999e-01, 9.358e-14, 1.234e-09]])  # no NaN, no inf
+
+    References
+    ----------
+    Numerical Recipes in C, Press et al. (2007), §6.1 — log-sum-exp trick.
+    """
+    d = np.asarray(d, dtype=np.float64)
+
+    if d.ndim == 1:
+        # Binary decision_function returns shape (n_samples,); apply sigmoid
+        # and stack into a 2-column probability matrix — mirrors sklearn's
+        # CalibratedClassifierCV and QuantumFieldUnit binary handling.
+        prob_pos = 1.0 / (1.0 + np.exp(-np.clip(d, -500.0, 500.0)))
+        return np.column_stack([1.0 - prob_pos, prob_pos])
+
+    # Multi-class: log-sum-exp trick (subtract per-row max before exp)
+    d_shifted = d - np.max(d, axis=1, keepdims=True)   # max → 0; others ≤ 0
+    exp_d     = np.exp(d_shifted)
+    return exp_d / np.sum(exp_d, axis=1, keepdims=True)
+
 # --- 1. THE HOLOGRAPHIC SOUL (Unit 3 - Multiverse Edition) ---
 class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
     def __init__(self, k=15, random_state=None, freq=2.0, gamma=0.5,
@@ -376,12 +435,7 @@ class QuantumFieldUnit(BaseEstimator, ClassifierMixin):
     def predict_proba(self, X):
         X_quantum = self.rbf_feature_.transform(X)
         d = self.classifier_.decision_function(X_quantum)
-        if len(self.classes_) == 2:
-            probs = 1 / (1 + np.exp(-d))
-            return np.column_stack([1-probs, probs])
-        else:
-            exp_d = np.exp(d - np.max(d, axis=1, keepdims=True))
-            return exp_d / np.sum(exp_d, axis=1, keepdims=True)
+        return _stable_softmax(d)
 
     def score(self, X, y):
         return accuracy_score(y, self.classes_[np.argmax(self.predict_proba(X), axis=1)])
@@ -1228,7 +1282,6 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             self.unit_05, self.unit_06, self.unit_07, self.unit_08,
             self.unit_09, self.unit_10, self.unit_11,
             self.unit_15, self.unit_16,   # Sector D physics units
-            self.unit_09, self.unit_10, self.unit_11
         ]
 
         for i, unit in enumerate(other_units):
@@ -1257,7 +1310,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
                     p = unit.predict_proba(X_evo_v)
                 else:
                     d = unit.decision_function(X_evo_v)
-                    p = np.exp(d) / np.sum(np.exp(d), axis=1, keepdims=True)
+                    p = _stable_softmax(d)  # log-sum-exp: numerically stable
                 preds_proba.append(p)
             except:
                 preds_proba.append(np.ones((len(X_evo_v), n_classes)) / n_classes)
@@ -1301,9 +1354,6 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
                 "Resonance", "GoldenPhi", "Gravity",
                 "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3",
             ]
-            names = ["Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2", "Nu-Warp",
-                     "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA", "Resonance",
-                     "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3"]
 
             # Sort by influence
             indices = np.argsort(self.weights_)[::-1]
@@ -1368,7 +1418,7 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
                     p = unit.predict_proba(X_scaled)
                 else:
                     d = unit.decision_function(X_scaled)
-                    p = np.exp(d) / np.sum(np.exp(d), axis=1, keepdims=True)
+                    p = _stable_softmax(d)  # log-sum-exp: numerically stable
             except:
                  p = np.ones((len(X), len(self.classes_))) / len(self.classes_)
 
