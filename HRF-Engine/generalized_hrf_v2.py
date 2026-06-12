@@ -435,12 +435,7 @@ class QuantumFieldUnit(BaseEstimator, ClassifierMixin):
     def predict_proba(self, X):
         X_quantum = self.rbf_feature_.transform(X)
         d = self.classifier_.decision_function(X_quantum)
-        if len(self.classes_) == 2:
-            probs = 1.0 / (1.0 + np.exp(-np.clip(d, -500.0, 500.0)))  # clip guards sigmoid overflow
-            return np.column_stack([1-probs, probs])
-        else:
-            exp_d = np.exp(d - np.max(d, axis=1, keepdims=True))
-            return exp_d / np.sum(exp_d, axis=1, keepdims=True)
+        return _stable_softmax(d)
 
     def score(self, X, y):
         return accuracy_score(y, self.classes_[np.argmax(self.predict_proba(X), axis=1)])
@@ -1287,7 +1282,6 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
             self.unit_05, self.unit_06, self.unit_07, self.unit_08,
             self.unit_09, self.unit_10, self.unit_11,
             self.unit_15, self.unit_16,   # Sector D physics units
-            self.unit_09, self.unit_10, self.unit_11
         ]
 
         for i, unit in enumerate(other_units):
@@ -1360,9 +1354,6 @@ class HarmonicResonanceClassifier_BEAST_14D(BaseEstimator, ClassifierMixin):
                 "Resonance", "GoldenPhi", "Gravity",
                 "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3",
             ]
-            names = ["Logic-ET", "Logic-RF", "Logic-HG", "Grad-XG1", "Grad-XG2", "Nu-Warp",
-                     "PolyKer", "Geom-K3", "Geom-K9", "Space-QDA", "Resonance",
-                     "SOUL-EVO1", "SOUL-EVO2", "SOUL-EVO3"]
 
             # Sort by influence
             indices = np.argsort(self.weights_)[::-1]
