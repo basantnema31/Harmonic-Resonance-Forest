@@ -2007,7 +2007,7 @@ class HarmonicResonanceClassifier_BEAST_21D(BaseEstimator, ClassifierMixin):
         # [COSMIC SECTOR - THE FINAL TRINITY]
         # 1. DEFINE THE UNITS (Using the NEW Heavy GPU classes)
         self.unit_18 = GoldenSpiralUnit(k=21, n_estimators=50)      # Golden Forest
-        self.unit_19 = EntropyMaxwellUnitV2(n_estimators=50)          # Entropy Forest
+        self.unit_19 = EntropyForestUnit(n_estimators=50)          # Entropy Forest
         self.unit_20 = QuantumFluxUnit(n_estimators=20, gamma=0.5)  # Quantum Forest
         self.unit_21 = EventHorizonUnit(n_estimators=50)            # Gravity Forest
 
