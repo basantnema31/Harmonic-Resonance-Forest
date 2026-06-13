@@ -548,7 +548,7 @@ class GoldenSpiralUnit(BaseEstimator, ClassifierMixin):
 
 
 # ---Unit 19. THE ENTROPY FOREST V2 (GPU T4 - Bootstrap Thermodynamics) ---
-class EntropyMaxwellUnitV2(BaseEstimator, ClassifierMixin):
+class EntropyForestUnit(BaseEstimator, ClassifierMixin):
     def __init__(self, n_estimators=100):
         self.n_estimators = n_estimators
         self.forest_stats_ = [] # Stores (mean, var) for 50 bootstraps
