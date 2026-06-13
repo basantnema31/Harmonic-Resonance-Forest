@@ -8,9 +8,9 @@ hundreds of lines of top-level executable code and GPU-only dependencies
 (cupy, cuml). This test module:
 
   1. Mocks cupy / cuml so all GPU calls run on CPU via numpy/sklearn.
-  2. Extracts only the HarmonicResonanceClassifier_v16 class + its required
-     imports from the source file into a minimal synthetic module — avoiding
-     the notebook's top-level training/plotting code entirely.
+  2. Uses AST parsing to dynamically locate and extract only the
+     HarmonicResonanceClassifier_v16 class from the source file —
+     avoiding the notebook's top-level training/plotting code entirely.
 
 Run from repo root:
     pytest tests/test_hrf_api.py -v
@@ -18,7 +18,7 @@ Run from repo root:
 
 import sys
 import os
-import re
+import ast
 import types
 import importlib.util
 import inspect
@@ -93,12 +93,10 @@ sys.modules.setdefault("matplotlib",        MagicMock())
 sys.modules.setdefault("matplotlib.pyplot", MagicMock())
 
 # ---------------------------------------------------------------------------
-# 2. EXTRACT & LOAD only HarmonicResonanceClassifier_v16
+# 2. EXTRACT & LOAD HarmonicResonanceClassifier_v16 via AST
 # ---------------------------------------------------------------------------
-_CLASS_NAME  = "HarmonicResonanceClassifier_v16"
-_CLASS_START = 4849   # 1-indexed line where class definition begins
-_CLASS_END   = 4953   # last line of the class (inclusive)
-_REL_PATH    = os.path.join("HRF Codes", "hrf_final_v16_hrf.py")
+_CLASS_NAME = "HarmonicResonanceClassifier_v16"
+_REL_PATH   = os.path.join("HRF Codes", "hrf_final_v16_hrf.py")
 
 _MINIMAL_IMPORTS = textwrap.dedent("""
 import sys, numpy as np, cupy as cp
@@ -122,11 +120,27 @@ def _load_hrf_class():
         )
 
     with open(fpath, "r", encoding="utf-8") as f:
-        all_lines = f.readlines()
+        source = f.read()
 
-    # Extract just the class (1-indexed → 0-indexed)
-    class_lines = all_lines[_CLASS_START - 1 : _CLASS_END]
-    class_src   = "".join(class_lines)
+    try:
+        tree = ast.parse(source)
+        class_node = next(
+            (node for node in ast.walk(tree)
+             if isinstance(node, ast.ClassDef) and node.name == _CLASS_NAME),
+            None
+        )
+    except Exception as e:
+        pytest.skip(f"Failed to parse source file: {e}", allow_module_level=True)
+
+    if class_node is None:
+        pytest.skip(f"'{_CLASS_NAME}' not found in source file.", allow_module_level=True)
+
+    if hasattr(ast, "get_source_segment"):
+        class_src = ast.get_source_segment(source, class_node)
+    else:
+        lines = source.splitlines()
+        end_line = getattr(class_node, "end_lineno", len(lines))
+        class_src = "\n".join(lines[class_node.lineno - 1 : end_line])
 
     synthetic_src = _MINIMAL_IMPORTS + "\n" + class_src
 
@@ -139,8 +153,7 @@ def _load_hrf_class():
 
     if not hasattr(mod, _CLASS_NAME):
         pytest.skip(
-            f"'{_CLASS_NAME}' not found after extraction. "
-            f"Check _CLASS_START/END line numbers.",
+            f"'{_CLASS_NAME}' not found after extraction.",
             allow_module_level=True,
         )
     return getattr(mod, _CLASS_NAME)
@@ -154,6 +167,7 @@ HRF = _load_hrf_class()
 
 @pytest.fixture(scope="module")
 def binary_data():
+    """100-sample binary dataset with 14 features (EEG-like dimensionality)."""
     X, y = make_classification(
         n_samples=100, n_features=14, n_informative=8,
         n_redundant=2, random_state=42
