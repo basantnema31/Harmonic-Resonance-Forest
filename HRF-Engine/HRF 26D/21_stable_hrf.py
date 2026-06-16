@@ -305,9 +305,11 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
                 dists_sq = cp.maximum(dists_sq, 0.0)
                 dists = cp.sqrt(dists_sq)
             else:
-                # [SLOW PATH] Broadcasting for non-Euclidean metrics (p != 2)
-                diff = cp.abs(batch_te[:, None, :] - self._X_train_gpu[None, :, :])
-                dists = cp.sum(cp.power(diff, p_norm), axis=2)
+                # [SLOW PATH] Memory-efficient loop for non-Euclidean metrics (p != 2)
+                dists = cp.empty((len(batch_te), len(self._X_train_gpu)), dtype=cp.float32)
+                for j in range(len(batch_te)):
+                    diff = cp.abs(self._X_train_gpu - batch_te[j])
+                    dists[j] = cp.sum(cp.power(diff, p_norm), axis=1)
                 dists = cp.power(dists, 1.0 / p_norm)
 
             # --- WEIGHTING (RESONANCE) ---
