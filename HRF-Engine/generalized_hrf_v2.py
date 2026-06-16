@@ -168,8 +168,10 @@ class HolographicSoulUnit(BaseEstimator, ClassifierMixin):
         for i in range(0, n_test, batch_size):
             end = min(i + batch_size, n_test)
             batch_te = X_te_g[i:end]
-            diff = cp.abs(batch_te[:, None, :] - X_tr_g[None, :, :])
-            dists = cp.sum(cp.power(diff, p_norm), axis=2)
+            dists = cp.empty((len(batch_te), len(X_tr_g)), dtype=cp.float32)
+            for j in range(len(batch_te)):
+                diff = cp.abs(X_tr_g - batch_te[j])
+                dists[j] = cp.sum(cp.power(diff, p_norm), axis=1)
             dists = cp.power(dists, 1.0/p_norm)
             top_k_idx = cp.argsort(dists, axis=1)[:, :self.k]
             row_idx = cp.arange(len(batch_te))[:, None]
